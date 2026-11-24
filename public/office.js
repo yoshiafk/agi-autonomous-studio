@@ -140,6 +140,8 @@ class OfficeSimulator {
 
     this.setupHiDPI();
     this.initEvents();
+    this.initInspectorControls();
+    this.selectAgent(0);
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
   }
@@ -200,14 +202,77 @@ class OfficeSimulator {
     });
   }
 
-  selectAgent(id) {
-    this.selectedAgentId = id;
-    const ag = this.agents.find(a => a.id === id) || this.agents[0];
+  initInspectorControls() {
+    const nudgeInput = document.getElementById('insp-nudge-input');
+    const nudgeBtn = document.getElementById('insp-nudge-btn');
+    const pauseBtn = document.getElementById('insp-pause-btn');
+    const loungeBtn = document.getElementById('insp-lounge-btn');
+
+    const doNudge = () => {
+      const ag = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
+      if (!ag || !nudgeInput || !nudgeInput.value.trim()) return;
+      const val = nudgeInput.value.trim();
+      ag.speech = `Operator: "${val}"`;
+      ag.isDrifting = false;
+      nudgeInput.value = '';
+      this.updateCockpitUI();
+      this.updateRosterUI();
+      if (window.chiptuneAudio) window.chiptuneAudio.playSatellitePing();
+    };
+
+    if (nudgeBtn) {
+      nudgeBtn.onclick = () => doNudge();
+    }
+    if (nudgeInput) {
+      nudgeInput.onkeydown = (e) => {
+        if (e.key === 'Enter') doNudge();
+      };
+    }
+
+    if (pauseBtn) {
+      pauseBtn.onclick = () => {
+        const ag = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
+        if (!ag) return;
+        ag.isPaused = !ag.isPaused;
+        ag.state = ag.isPaused ? "resting" : "working";
+        ag.speech = ag.isPaused ? "Paused by operator." : "Resumed active work.";
+        this.updateCockpitUI();
+        this.updateRosterUI();
+        if (window.chiptuneAudio) window.chiptuneAudio.playAlert();
+      };
+    }
+
+    if (loungeBtn) {
+      loungeBtn.onclick = () => {
+        const ag = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
+        if (!ag) return;
+        ag.targetX = 160;
+        ag.targetY = 360;
+        ag.state = "coffee";
+        ag.currentTask = "Breakout Rest";
+        ag.speech = "Taking a breakout rest.";
+        this.updateCockpitUI();
+        this.updateRosterUI();
+        if (window.chiptuneAudio) window.chiptuneAudio.playCoffeeSteam();
+      };
+    }
+  }
+
+  updateCockpitUI() {
+    const ag = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
     if (!ag) return;
 
     const badge = document.getElementById('insp-role-badge');
     const name = document.getElementById('insp-agent-name');
     const status = document.getElementById('insp-status-text');
+    const tokenCap = document.getElementById('insp-token-capacity');
+    const tokenBar = document.getElementById('insp-token-bar');
+    const pauseBtn = document.getElementById('insp-pause-btn');
+
+    const tokenRatio = ag.contextRatio || (0.35 + (ag.id * 0.14));
+    const tokenPct = Math.round(tokenRatio * 100);
+    const tokenCount = Math.round(tokenRatio * 200);
+    const contextColor = tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981');
 
     if (badge) {
       badge.textContent = ag.role.toUpperCase();
@@ -216,8 +281,25 @@ class OfficeSimulator {
       badge.style.color = ag.color;
     }
     if (name) name.textContent = ag.name;
-    if (status) status.textContent = ag.speech;
+    if (status) status.textContent = ag.speech || ag.currentTask || 'Ready for instructions...';
 
+    if (tokenCap) {
+      tokenCap.textContent = `${tokenPct}% (${tokenCount}k / 200k)`;
+      tokenCap.style.color = contextColor;
+    }
+    if (tokenBar) {
+      tokenBar.style.width = `${tokenPct}%`;
+      tokenBar.style.backgroundColor = contextColor;
+    }
+
+    if (pauseBtn) {
+      pauseBtn.textContent = ag.isPaused ? 'Resume' : 'Pause';
+    }
+  }
+
+  selectAgent(id) {
+    this.selectedAgentId = id;
+    this.updateCockpitUI();
     this.updateRosterUI();
   }
 
@@ -282,6 +364,12 @@ class OfficeSimulator {
   }
 
   getStationLabel(ag) {
+    if (ag.currentTask && ag.currentTask.includes("Bookshelf")) {
+      return "Knowledge Archive";
+    }
+    if (ag.currentTask && ag.currentTask.includes("Skyline")) {
+      return "Skyline Horizon";
+    }
     if (ag.state === "coffee" || (Math.hypot(ag.x - 160, ag.y - 360) < 130)) {
       return "Breakout Lounge & Cafe";
     }
@@ -451,7 +539,7 @@ class OfficeSimulator {
     return ag;
   }
 
-  // --- Theme-Aware In-Card Cockpit Roster UI ---
+  // --- Theme-Aware Master-Detail Uniform Roster UI ---
   updateRosterUI() {
     const list = document.getElementById('agent-roster-list');
     const counter = document.getElementById('agent-counter');
@@ -459,6 +547,7 @@ class OfficeSimulator {
 
     if (counter) counter.textContent = this.agents.length;
     if (rosterCount) rosterCount.textContent = `${this.agents.length} Online`;
+    this.updateCockpitUI();
     if (!list) return;
 
     list.innerHTML = "";
@@ -467,8 +556,7 @@ class OfficeSimulator {
       const card = document.createElement('div');
       card.className = `roster-item-card ${isSelected ? 'selected' : ''}`;
 
-      card.onclick = (e) => {
-        if (e.target.closest('input') || e.target.closest('button')) return;
+      card.onclick = () => {
         this.selectAgent(ag.id);
       };
 
@@ -477,10 +565,14 @@ class OfficeSimulator {
       let statusClass = "working";
       let statusLabel = "WORKING";
 
+      const isResting = ag.state === "coffee" || 
+        ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee"].some(t => ag.currentTask && ag.currentTask.includes(t)) ||
+        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("reference manual")));
+
       if (ag.isPaused) {
         statusClass = "paused";
         statusLabel = "PAUSED";
-      } else if (ag.state === "coffee" || (stationLabel.includes("Atrium") && (ag.currentTask === "Resting" || (ag.speech && ag.speech.includes("standby"))))) {
+      } else if (isResting) {
         statusClass = "resting";
         statusLabel = "RESTING";
       } else if (ag.currentTask === "Ready" && ag.state !== "working" && ag.state !== "shipping") {
@@ -494,125 +586,37 @@ class OfficeSimulator {
       // Metadata calculations
       const tokenRatio = ag.contextRatio || (0.35 + (ag.id * 0.14));
       const tokenPct = Math.round(tokenRatio * 100);
-      const tokenCount = Math.round(tokenRatio * 200);
       const contextColor = tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981');
-
-      let expandedHtml = '';
-      if (isSelected) {
-        expandedHtml = `
-          <div class="roster-expanded-panel">
-            <!-- Context Window Utilization HUD -->
-            <div class="space-y-1">
-              <div class="flex items-center justify-between text-[10.5px]">
-                <span class="font-semibold flex items-center gap-1.5" style="color: var(--text-primary);">Context Window Capacity</span>
-                <span class="font-mono font-bold" style="color: ${contextColor}">${tokenPct}% (${tokenCount}k / 200k)</span>
-              </div>
-              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background: var(--border-card);">
-                <div class="h-full transition-all duration-300" style="width: ${tokenPct}%; background-color: ${contextColor}"></div>
-              </div>
-            </div>
-
-            <!-- Station & Target Info Grid -->
-            <div class="grid grid-cols-2 gap-1.5 text-[10.5px] pt-0.5">
-              <div class="truncate">
-                <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Station</span>
-                <span class="font-semibold truncate block" style="color: var(--text-primary);">${stationLabel}</span>
-              </div>
-              <div class="truncate">
-                <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Action Target</span>
-                <span class="font-semibold truncate block font-mono" style="color: var(--accent-primary);">${ag.currentTask || 'Idle in Studio'}</span>
-              </div>
-            </div>
-
-            <!-- Inline Human-in-the-Loop Steering Controls -->
-            <div class="flex items-center gap-1.5 pt-1.5" style="border-top: 1px solid var(--border-card);">
-              <input type="text" placeholder="Nudge agent..." class="roster-nudge-input flex-1 text-xs px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-indigo-500" style="background: var(--surface-card); border-color: var(--border-card); color: var(--text-primary);">
-              <button class="roster-nudge-btn px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10.5px] transition">Nudge</button>
-              <button class="roster-pause-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Toggle Pause">${ag.isPaused ? 'Resume' : 'Pause'}</button>
-              <button class="roster-lounge-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Send to Breakout">Breakout</button>
-            </div>
-          </div>
-        `;
-      }
-
       const shortStation = stationLabel.replace(" (Front Exec)", "").replace(" (Back Exec)", "");
 
       card.innerHTML = `
         <div class="roster-card-header">
           <div class="flex items-center gap-2.5 truncate">
-            <div class="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-sm" style="background-color: ${ag.color}">
-              ${ag.name.slice(0, 2).toUpperCase()}
+            <div class="roster-avatar-wrap">
+              <div class="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-sm" style="background-color: ${ag.color}">
+                ${ag.name.slice(0, 2).toUpperCase()}
+              </div>
+              <span class="roster-status-dot ${statusClass}"></span>
             </div>
             <div class="truncate">
               <div class="font-semibold text-xs truncate" style="color: var(--text-primary);">${ag.name}</div>
-              <div class="text-[10px] truncate" style="color: var(--text-muted);">${ag.currentTask}</div>
+              <div class="text-[10px] truncate" style="color: var(--text-muted);">${ag.currentTask || 'Active in Studio'}</div>
             </div>
           </div>
           <div class="roster-card-meta">
-            <span class="roster-station-pill">${shortStation}</span>
-            <span class="roster-context-pill font-mono" style="color: ${contextColor}; border-color: ${contextColor}40">${tokenPct}%</span>
+            <span class="roster-station-pill" title="${stationLabel}">${shortStation}</span>
             <span class="roster-status-badge ${statusClass}">
               ${statusLabel}
             </span>
           </div>
         </div>
-        ${expandedHtml}
+        <div class="roster-micro-gauge">
+          <div class="roster-micro-bar">
+            <div class="h-full transition-all duration-300" style="width: ${tokenPct}%; background-color: ${contextColor}"></div>
+          </div>
+          <span class="text-[9px] font-mono font-bold shrink-0" style="color: ${contextColor}">${tokenPct}%</span>
+        </div>
       `;
-
-      // Wire inline steering buttons when card is expanded
-      if (isSelected) {
-        const nudgeInput = card.querySelector('.roster-nudge-input');
-        const nudgeBtn = card.querySelector('.roster-nudge-btn');
-        const pauseBtn = card.querySelector('.roster-pause-btn');
-        const loungeBtn = card.querySelector('.roster-lounge-btn');
-
-        const doNudge = () => {
-          if (!nudgeInput || !nudgeInput.value.trim()) return;
-          const val = nudgeInput.value.trim();
-          ag.speech = `Operator: "${val}"`;
-          ag.isDrifting = false;
-          nudgeInput.value = '';
-          this.selectAgent(ag.id);
-          if (window.chiptuneAudio) window.chiptuneAudio.playSatellitePing();
-        };
-
-        if (nudgeBtn) {
-          nudgeBtn.onclick = (e) => {
-            e.stopPropagation();
-            doNudge();
-          };
-        }
-        if (nudgeInput) {
-          nudgeInput.onclick = (e) => e.stopPropagation();
-          nudgeInput.onkeydown = (e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') doNudge();
-          };
-        }
-
-        if (pauseBtn) {
-          pauseBtn.onclick = (e) => {
-            e.stopPropagation();
-            ag.isPaused = !ag.isPaused;
-            ag.state = ag.isPaused ? "resting" : "working";
-            ag.speech = ag.isPaused ? "Paused by operator." : "Resumed active work.";
-            this.selectAgent(ag.id);
-            if (window.chiptuneAudio) window.chiptuneAudio.playAlert();
-          };
-        }
-
-        if (loungeBtn) {
-          loungeBtn.onclick = (e) => {
-            e.stopPropagation();
-            ag.targetX = 160;
-            ag.targetY = 360;
-            ag.state = "coffee";
-            ag.speech = "Taking a breakout rest.";
-            this.selectAgent(ag.id);
-            if (window.chiptuneAudio) window.chiptuneAudio.playCoffeeSteam();
-          };
-        }
-      }
 
       list.appendChild(card);
     });

@@ -150,16 +150,35 @@
         <canvas id="officeCanvas" class="w-full block"></canvas>
       </div>
 
-      <!-- Agent Inspector Strip (Clean dedicated bar below canvas, zero overlap!) -->
-      <div id="inspector-bar" class="studio-card px-4 py-2 flex items-center justify-between text-xs shadow-sm shrink-0">
-        <div class="flex items-center gap-3 truncate">
-          <span id="insp-role-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-200">LEAD ARCHITECT</span>
-          <span id="insp-agent-name" class="font-bold text-sm">Coordinator</span>
-          <span class="text-slate-300">•</span>
-          <span id="insp-status-text" class="truncate">Ready for instructions...</span>
+      <!-- Agent Command Cockpit (Full-width dedicated steering dock) -->
+      <div id="inspector-bar" class="studio-card p-3 flex flex-col gap-2 shadow-sm shrink-0">
+        <!-- Top Row: Identity, Status, Token Capacity -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 truncate">
+            <span id="insp-role-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-200">LEAD ARCHITECT</span>
+            <span id="insp-agent-name" class="font-bold text-xs truncate">Coordinator</span>
+            <span class="text-slate-300 dark:text-slate-700">•</span>
+            <span id="insp-status-text" class="text-xs truncate text-slate-600 dark:text-slate-400">Ready for instructions...</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono shrink-0">
+            <span class="text-[10px] uppercase font-bold text-slate-400">Context:</span>
+            <span id="insp-token-capacity" class="font-bold text-xs" style="color: var(--accent-primary);">35% (70k / 200k)</span>
+            <span class="text-slate-300 dark:text-slate-700">|</span>
+            <span class="text-slate-400 text-xs">Active: <strong id="agent-counter" class="text-slate-700 dark:text-slate-200">1</strong></span>
+          </div>
         </div>
-        <div class="flex items-center gap-2 text-xs font-mono">
-          <span>Active Agents: <strong id="agent-counter">1</strong></span>
+
+        <!-- Token Capacity Progress Bar -->
+        <div class="w-full h-1.5 rounded-full overflow-hidden" style="background: var(--border-card);">
+          <div id="insp-token-bar" class="h-full transition-all duration-300" style="width: 35%; background-color: #10b981;"></div>
+        </div>
+
+        <!-- Human-in-the-Loop Steering Controls -->
+        <div class="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <input id="insp-nudge-input" type="text" placeholder="Nudge selected agent with instruction..." class="flex-1 text-xs px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-indigo-500" style="background: var(--surface-card); border-color: var(--border-card); color: var(--text-primary);">
+          <button id="insp-nudge-btn" class="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-sm">Nudge</button>
+          <button id="insp-pause-btn" class="px-2.5 py-1 rounded-md border text-xs font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);">Pause</button>
+          <button id="insp-lounge-btn" class="px-2.5 py-1 rounded-md border text-xs font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);">Breakout</button>
         </div>
       </div>
 

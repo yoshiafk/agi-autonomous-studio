@@ -284,28 +284,29 @@ body.theme-night .roadmap-item.done {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-/* Roster Item Cards (Theme-Aware In-Card Cockpit) */
+/* Roster Item Cards (Uniform High-Density Master-Detail Tiles) */
 .roster-item-card {
   background-color: var(--surface-card) !important;
   border: 1px solid var(--border-card) !important;
   border-radius: 8px;
-  padding: 9px 11px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s ease;
+  position: relative;
 }
 
 .roster-item-card:hover {
   border-color: var(--border-hover) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .roster-item-card.selected {
   border-color: var(--accent-primary) !important;
   background-color: var(--accent-primary-bg) !important;
-  box-shadow: 0 0 0 1px var(--accent-primary);
+  box-shadow: 0 0 0 1.5px var(--accent-primary);
 }
 
 .roster-card-header {
@@ -316,46 +317,76 @@ body.theme-night .roadmap-item.done {
   width: 100%;
 }
 
+.roster-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.roster-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--surface-card);
+}
+
+.roster-status-dot.working {
+  background-color: #10b981;
+  box-shadow: 0 0 4px #10b981;
+}
+
+.roster-status-dot.resting {
+  background-color: #f59e0b;
+}
+
+.roster-status-dot.standby {
+  background-color: #64748b;
+}
+
+.roster-status-dot.paused {
+  background-color: #94a3b8;
+}
+
 .roster-card-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .roster-station-pill {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 9.5px;
+  padding: 1.5px 6px;
+  border-radius: 5px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--text-muted);
   border: 1px solid var(--border-card);
   background: var(--surface-card);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.roster-context-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 10px;
-  font-family: monospace;
-  font-weight: 700;
-  border: 1px solid var(--border-card);
-  background: var(--surface-card);
-}
-
-.roster-expanded-panel {
-  border-top: 1px solid var(--border-card);
-  padding-top: 8px;
+.roster-micro-gauge {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  cursor: default;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-top: 2px;
+}
+
+.roster-micro-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--border-card);
 }
 
 /* Roster Status Badges */
