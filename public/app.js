@@ -175,7 +175,13 @@ async function checkActiveProject(force = false) {
     if (!active || !active.conversation_id) return;
 
     const isActive = Boolean(active.active);
-    updateActiveHeader(active.project_id, active.title, isActive);
+    const select = document.getElementById('project-select');
+    let displayTitle = active.project_id;
+    if (select && select.options) {
+      const match = Array.from(select.options).find(o => o.value === active.project_id);
+      if (match) displayTitle = match.text.replace(/^[🟢⚪]\s*/, '').replace(/\s*\(\d+\)$/, '');
+    }
+    updateActiveHeader(displayTitle, active.title, isActive);
 
     if (lastKnownActive === true && !isActive) {
       onConversationIdle();

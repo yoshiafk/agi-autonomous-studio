@@ -115,6 +115,15 @@ def scan_projects():
     conn = get_db_connection()
     if conn:
         try:
+            # Load project mapping overrides if any
+            mapping_file = CONFIG_DIR / "conversation_project_map.json"
+            conv_map = {}
+            if mapping_file.exists():
+                try:
+                    conv_map = json.loads(mapping_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+
             cur = conn.cursor()
             cur.execute("""
                 SELECT conversation_id, title, project_id, workspace_uris, not_fully_idle, last_modified_time, step_count
@@ -124,7 +133,7 @@ def scan_projects():
             rows = cur.fetchall()
 
             for conv_id, title, p_id, w_uris, not_fully_idle, mod_time, steps in rows:
-                p_key = p_id if p_id else "outside-of-project"
+                p_key = conv_map.get(conv_id) or p_id or "outside-of-project"
                 
                 # Derive display name if project not in manifests
                 if p_key not in projects_dict:
@@ -206,9 +215,18 @@ def find_active_conversation():
             """)
             row = cur.fetchone()
         if row:
+            mapping_file = CONFIG_DIR / "conversation_project_map.json"
+            p_id = row[1] or "outside-of-project"
+            if mapping_file.exists():
+                try:
+                    conv_map = json.loads(mapping_file.read_text(encoding="utf-8"))
+                    if row[0] in conv_map:
+                        p_id = conv_map[row[0]]
+                except Exception:
+                    pass
             return {
                 "conversation_id": row[0],
-                "project_id": row[1] or "outside-of-project",
+                "project_id": p_id,
                 "title": row[2] or "(Untitled Session)",
                 "active": bool(row[3] == 1),
                 "modified": row[4]
