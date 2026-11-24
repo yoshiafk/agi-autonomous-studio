@@ -244,6 +244,51 @@ class ChiptuneAudio {
       });
     } catch (e) {}
   }
+
+  // 8-bit memory consolidation chord for knowledge compaction (A4 -> C#5 -> E5 -> A5)
+  playCompactionChime() {
+    if (!this.enabled || !this.hasUserInteracted) return;
+    const now = Date.now();
+    if (this.lastSoundTime.compaction && now - this.lastSoundTime.compaction < 1500) return;
+    this.lastSoundTime.compaction = now;
+    if (!this.init()) return;
+
+    try {
+      const notes = [440.00, 554.37, 659.25, 880.00]; // A4, C#5, E5, A5
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = (idx === 3) ? 'triangle' : 'sine';
+        const st = this.ctx.currentTime + idx * 0.085;
+        osc.frequency.setValueAtTime(freq, st);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(600, st);
+        filter.frequency.exponentialRampToValueAtTime(2600, st + 0.28);
+
+        gain.gain.setValueAtTime(0, st);
+        gain.gain.linearRampToValueAtTime(0.09, st + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, st + 0.35);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.compressor || this.ctx.destination);
+
+        osc.onended = () => {
+          try {
+            osc.disconnect();
+            filter.disconnect();
+            gain.disconnect();
+          } catch (err) {}
+        };
+
+        osc.start(st);
+        osc.stop(st + 0.38);
+      });
+    } catch (e) {}
+  }
 }
 
 window.chiptuneAudio = new ChiptuneAudio();

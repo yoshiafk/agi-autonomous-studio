@@ -487,6 +487,8 @@ function setFeedFilter(filter) {
   });
 }
 
+let lastKnownContextTokens = 0;
+
 function updateTokenHealth(analytics) {
   if (!analytics) return;
   const tokenPillText = document.getElementById('token-stat-text');
@@ -502,13 +504,48 @@ function updateTokenHealth(analytics) {
   const pill = document.getElementById('token-health-pill');
   if (pill) {
     pill.classList.remove('hidden');
+    pill.title = "Context Window Capacity (Click to preview Knowledge Archive Compaction Ceremony)";
+    pill.style.cursor = "pointer";
+
+    if (!pill.dataset.hasCompactionListener) {
+      pill.dataset.hasCompactionListener = "true";
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (officeSim && typeof officeSim.triggerCompactionCeremony === 'function') {
+          officeSim.triggerCompactionCeremony(145000);
+          renderGenericCard("Memory Compacted (Preview)", "Simulated knowledge consolidation into Knowledge Archive. Reclaimed 145k tokens.", "action-card-info", "database");
+        }
+      });
+    }
+
     const dot = pill.querySelector('span');
     if (dot) {
       if (pct > 85) dot.className = "w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse";
       else if (pct > 65) dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse";
       else dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
     }
+
+    // Detect sudden token reduction indicative of context compaction
+    if (lastKnownContextTokens > 40000 && (lastKnownContextTokens - currentCtx > 25000)) {
+      const reclaimed = lastKnownContextTokens - currentCtx;
+      if (officeSim && typeof officeSim.triggerCompactionCeremony === 'function') {
+        officeSim.triggerCompactionCeremony(reclaimed);
+      }
+      renderGenericCard(
+        "Memory Compacted",
+        `Consolidated session memory into Knowledge Archive. Reclaimed ${fmt(reclaimed)} tokens.`,
+        "action-card-info",
+        "database"
+      );
+
+      pill.classList.add('ring-2', 'ring-emerald-400', 'shadow-[0_0_12px_rgba(16,185,129,0.4)]');
+      setTimeout(() => {
+        pill.classList.remove('ring-2', 'ring-emerald-400', 'shadow-[0_0_12px_rgba(16,185,129,0.4)]');
+      }, 4000);
+    }
   }
+
+  lastKnownContextTokens = currentCtx;
 }
 
 function updateAutoFollowButton() {

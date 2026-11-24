@@ -23,6 +23,8 @@ class OfficeSimulator {
     this.particles = [];
     this.maxParticles = 80;
     this.wasAllStepsDone = false;
+    this.archiveCompacting = false;
+    this.archiveGlowTimer = 0;
 
     // Studio Zones (Modern Architectural Tech Studio Layout)
     this.zones = {
@@ -360,6 +362,61 @@ class OfficeSimulator {
     this.updateRosterUI();
   }
 
+  triggerCompactionCeremony(reclaimedTokens = 120000) {
+    if (window.chiptuneAudio) {
+      window.chiptuneAudio.playCompactionChime();
+    }
+
+    // 1. Identify or summon Archivist Specialist (Research Analyst)
+    const archivist = this.getOrCreateSpecialist("researcher", "Research Analyst");
+    this.selectAgent(archivist.id);
+
+    archivist.isRestingGoal = false;
+    archivist.isPaused = false;
+    archivist.state = "working";
+    archivist.speech = "Consolidating working memory...";
+    archivist.currentTask = "Compacting Memory";
+
+    // Walk to Knowledge Archive Bookshelf (library slot 0: 270, 180)
+    const targetStation = this.getStationCoordinates("library", archivist.id);
+    archivist.targetX = targetStation.x;
+    archivist.targetY = targetStation.y;
+
+    // 2. Activate Knowledge Archive holographic aura
+    this.archiveCompacting = true;
+    this.archiveGlowTimer = 220; // ~3.6s at 60fps
+
+    // 3. Spawn phased memory compression particles from Knowledge Archive
+    const colors = ['#06b6d4', '#10b981', '#38bdf8', '#34d399', '#facc15'];
+    for (let i = 0; i < 28; i++) {
+      setTimeout(() => {
+        if (!this.archiveCompacting) return;
+        this.spawnParticle(
+          245 + Math.random() * 60,
+          155 + Math.random() * 45,
+          'memory',
+          '',
+          colors[i % colors.length]
+        );
+      }, i * 80);
+    }
+
+    // 4. Conclude filing sequence after 3.6 seconds
+    setTimeout(() => {
+      this.archiveCompacting = false;
+      const fmtTokens = (reclaimedTokens >= 1000) ? `${Math.round(reclaimedTokens / 1000)}k` : `${reclaimedTokens}`;
+      archivist.speech = `Knowledge archived. Reclaimed ${fmtTokens} tokens.`;
+      archivist.currentTask = "Standby at Workstation";
+      archivist.targetX = archivist.homeX;
+      archivist.targetY = archivist.homeY;
+      this.updateRosterUI();
+      this.updateCockpitUI();
+    }, 3600);
+
+    this.updateRosterUI();
+    this.updateCockpitUI();
+  }
+
   selectAgent(id) {
     this.selectedAgentId = id;
     this.updateCockpitUI();
@@ -382,6 +439,8 @@ class OfficeSimulator {
     this.missionSteps = [];
     this.wasAllStepsDone = false;
     this.isStudioIdle = false;
+    this.archiveCompacting = false;
+    this.archiveGlowTimer = 0;
     this.particles = [];
 
     // Prune dynamically spawned subagents on session reset, keeping core Lead Architect
@@ -802,6 +861,8 @@ class OfficeSimulator {
       researcher.targetX = coords.x;
       researcher.targetY = coords.y;
       this.selectAgent(researcher.id);
+    } else if (commandName === "/compact" || commandName === "compact") {
+      this.triggerCompactionCeremony(140000);
     }
     this.updateRosterUI();
   }
@@ -1400,6 +1461,25 @@ class OfficeSimulator {
     this.ctx.font = 'bold 9px sans-serif';
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#cbd5e1' : '#78350f';
     this.ctx.fillText("KNOWLEDGE ARCHIVE", x - bw / 2 + 10, y - bh / 2 + 18);
+
+    if (this.archiveCompacting) {
+      this.ctx.save();
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 160);
+      this.ctx.shadowColor = '#06b6d4';
+      this.ctx.shadowBlur = 18 + pulse * 14;
+      this.ctx.strokeStyle = `rgba(6, 182, 212, ${0.45 + pulse * 0.4})`;
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      this.ctx.roundRect(x - bw / 2 - 4, y - bh / 2 - 4, bw + 8, bh + 8, 8);
+      this.ctx.stroke();
+
+      // Floating holographic badge above bookshelf
+      this.ctx.font = 'bold 8.5px monospace';
+      this.ctx.fillStyle = '#06b6d4';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText("COMPACTING MEMORY", x, y - bh / 2 - 10);
+      this.ctx.restore();
+    }
   }
 
   drawSecurityVault(x, y, palette) {
@@ -2882,16 +2962,16 @@ class OfficeSimulator {
     this.particles.push({
       x,
       y,
-      vx: (type === 'confetti') ? (Math.random() * 2.4 - 1.2) : ((type === 'sweat') ? (Math.random() * 1.0 - 0.5) : Math.cos(angle) * speed),
-      vy: (type === 'confetti') ? (0.6 + Math.random() * 1.2) : ((type === 'sweat') ? (0.5 + Math.random() * 0.8) : (Math.sin(angle) * speed - 0.35)),
+      vx: (type === 'confetti') ? (Math.random() * 2.4 - 1.2) : ((type === 'sweat') ? (Math.random() * 1.0 - 0.5) : ((type === 'memory') ? (Math.random() * 1.2 - 0.6) : Math.cos(angle) * speed)),
+      vy: (type === 'confetti') ? (0.6 + Math.random() * 1.2) : ((type === 'sweat') ? (0.5 + Math.random() * 0.8) : ((type === 'memory') ? (-0.9 - Math.random() * 1.1) : (Math.sin(angle) * speed - 0.35))),
       alpha: 1.0,
-      decay: (type === 'confetti') ? (0.005 + Math.random() * 0.005) : ((type === 'sweat') ? 0.025 : (0.016 + Math.random() * 0.014)),
+      decay: (type === 'confetti') ? (0.005 + Math.random() * 0.005) : ((type === 'sweat') ? 0.025 : ((type === 'memory') ? 0.013 : (0.016 + Math.random() * 0.014))),
       type,
       text,
       color,
       rotation: Math.random() * Math.PI * 2,
       rotSpeed: (Math.random() - 0.5) * 0.18,
-      size: (type === 'steam') ? 2.5 : ((type === 'spark') ? 3 : ((type === 'sweat') ? 2.5 : ((type === 'smoke') ? 3.5 : ((type === 'confetti') ? (3.5 + Math.random() * 2.5) : 8.5))))
+      size: (type === 'steam') ? 2.5 : ((type === 'spark') ? 3 : ((type === 'sweat') ? 2.5 : ((type === 'smoke') ? 3.5 : ((type === 'memory') ? 3.8 : ((type === 'confetti') ? (3.5 + Math.random() * 2.5) : 8.5)))))
     });
   }
 
@@ -2984,6 +3064,12 @@ class OfficeSimulator {
         this.ctx.rotate(p.rotation);
         this.ctx.fillStyle = p.color;
         this.ctx.fillRect(-p.size, -p.size / 2, p.size * 2, p.size);
+      } else if (p.type === 'memory') {
+        p.rotation += p.rotSpeed;
+        this.ctx.translate(p.x, p.y);
+        this.ctx.rotate(p.rotation);
+        this.ctx.fillStyle = p.color || '#06b6d4';
+        this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
       }
       this.ctx.restore();
     }
@@ -2992,6 +3078,14 @@ class OfficeSimulator {
   animate() {
     this.tickCount++;
     this.renderedBubbles = [];
+
+    // Countdown archive glow timer
+    if (this.archiveCompacting && this.archiveGlowTimer > 0) {
+      this.archiveGlowTimer--;
+      if (this.archiveGlowTimer <= 0) {
+        this.archiveCompacting = false;
+      }
+    }
 
     // Countdown error animation timers & spawn fluster particles
     this.agents.forEach(ag => {
