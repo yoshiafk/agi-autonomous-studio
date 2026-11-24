@@ -1,0 +1,19 @@
+services:
+  antigravity-office:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: antigravity-office-visualizer:latest
+    container_name: antigravity-office-visualizer
+    restart: unless-stopped
+    ports:
+      - "7777:7777"
+    environment:
+      - PORT=7777
+      - ANTIGRAVITY_DATA_DIR=/data/antigravity
+      - ANTIGRAVITY_CONFIG_DIR=/data/config
+    volumes:
+      - ./server.py:/app/server.py:ro
+      - ./public:/app/public:ro
+      - /mnt/c/Users/yosyf/.gemini/antigravity:/data/antigravity:ro
+      - /mnt/c/Users/yosyf/.gemini/config:/data/config:ro

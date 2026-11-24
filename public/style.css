@@ -1,0 +1,422 @@
+/* Clean Professional Design System (Full-Screen Theming: Day, Sunset, Night) */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* --- 1. THEME CUSTOM PROPERTIES --- */
+
+:root, body.theme-day {
+  --bg-app: #f8fafc;
+  --bg-header: rgba(255, 255, 255, 0.95);
+  --surface-card: #ffffff;
+  --surface-muted: #f1f5f9;
+  --border-card: #e2e8f0;
+  --border-hover: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --accent-primary: #2563eb;
+  --accent-primary-bg: #eff6ff;
+  --accent-primary-border: #bfdbfe;
+  --code-bg: #0f172a;
+  --code-text: #f8fafc;
+  --badge-bg: #f1f5f9;
+  --badge-text: #475569;
+  --badge-border: #e2e8f0;
+  --scrollbar-thumb: #cbd5e1;
+}
+
+body.theme-sunset {
+  --bg-app: #fdf8f4;
+  --bg-header: rgba(255, 247, 237, 0.95);
+  --surface-card: #fffcf9;
+  --surface-muted: #ffedd5;
+  --border-card: #fed7aa;
+  --border-hover: #fdba74;
+  --text-primary: #431407;
+  --text-secondary: #78350f;
+  --text-muted: #9a3412;
+  --accent-primary: #ea580c;
+  --accent-primary-bg: #fff7ed;
+  --accent-primary-border: #fed7aa;
+  --code-bg: #26160d;
+  --code-text: #ffedd5;
+  --badge-bg: #ffedd5;
+  --badge-text: #9a3412;
+  --badge-border: #fed7aa;
+  --scrollbar-thumb: #fdba74;
+}
+
+body.theme-night {
+  --bg-app: #0b0f17;
+  --bg-header: rgba(19, 27, 38, 0.95);
+  --surface-card: #131b26;
+  --surface-muted: #1c2636;
+  --border-card: #223044;
+  --border-hover: #334661;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-primary: #3b82f6;
+  --accent-primary-bg: rgba(59, 130, 246, 0.15);
+  --accent-primary-border: rgba(59, 130, 246, 0.35);
+  --code-bg: #06090e;
+  --code-text: #f1f5f9;
+  --badge-bg: #1e293b;
+  --badge-text: #cbd5e1;
+  --badge-border: #2d3d54;
+  --scrollbar-thumb: #2d3d54;
+}
+
+/* --- 2. BASE STYLING --- */
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* Header Theming */
+header#main-header {
+  background-color: var(--bg-header) !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  color: var(--text-primary);
+  transition: background-color 0.35s ease, border-color 0.35s ease;
+}
+
+/* Cards */
+.studio-card {
+  background-color: var(--surface-card) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.35s ease, color 0.35s ease;
+}
+
+.studio-card:hover {
+  border-color: var(--border-hover) !important;
+}
+
+/* Feed Cards */
+.feed-card {
+  background-color: var(--surface-card) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.35s ease;
+}
+
+.feed-card:hover {
+  border-color: var(--border-hover) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* Micro-badges */
+.feed-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--badge-bg);
+  color: var(--badge-text);
+  border: 1px solid var(--badge-border);
+}
+
+.badge-git {
+  background-color: #ecfeff !important;
+  color: #0891b2 !important;
+  border-color: #a5f3fc !important;
+}
+body.theme-sunset .badge-git {
+  background-color: #fff7ed !important;
+  color: #ea580c !important;
+  border-color: #fed7aa !important;
+}
+body.theme-night .badge-git {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+  color: #67e8f9 !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+}
+
+/* Code block */
+.cmd-box {
+  background-color: var(--code-bg);
+  color: var(--code-text);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid var(--border-card);
+}
+
+/* Roadmap Item */
+.roadmap-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  border: 1px solid var(--border-card);
+  background-color: var(--surface-card);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+
+.roadmap-item.done {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+body.theme-night .roadmap-item.done {
+  background-color: rgba(22, 101, 52, 0.25) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #86efac !important;
+}
+
+.roadmap-item.in-progress {
+  background-color: var(--accent-primary-bg);
+  border-color: var(--accent-primary-border);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.roadmap-item.pending {
+  color: var(--text-muted);
+}
+
+/* Segmented controls */
+.segmented-control {
+  background-color: var(--surface-muted);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 2px;
+  display: inline-flex;
+}
+
+.segmented-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.segmented-btn.active {
+  background-color: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Roster Item Cards (Theme-Aware In-Card Cockpit) */
+.roster-item-card {
+  background-color: var(--surface-card) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.roster-item-card:hover {
+  border-color: var(--border-hover) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.roster-item-card.selected {
+  border-color: var(--accent-primary) !important;
+  background-color: var(--accent-primary-bg) !important;
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 3px 8px rgba(59, 130, 246, 0.08);
+}
+
+.roster-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.roster-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.roster-station-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+}
+
+.roster-context-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 700;
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+}
+
+.roster-expanded-panel {
+  border-top: 1px solid var(--border-card);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: default;
+}
+
+/* Roster Status Badges */
+.roster-status-badge {
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.roster-status-badge.working {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+body.theme-sunset .roster-status-badge.working {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+body.theme-night .roster-status-badge.working {
+  background-color: rgba(5, 150, 105, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(5, 150, 105, 0.4) !important;
+}
+
+.roster-status-badge.resting {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+body.theme-sunset .roster-status-badge.resting {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+body.theme-night .roster-status-badge.resting {
+  background-color: rgba(217, 119, 6, 0.2) !important;
+  color: #fcd34d !important;
+  border-color: rgba(217, 119, 6, 0.4) !important;
+}
+
+/* Auto-Follow Toggle in Night Mode */
+body.theme-night #toggle-autofollow {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+/* Form Controls & Dropdowns */
+select#project-select, button.control-btn {
+  background-color: var(--surface-card) !important;
+  border: 1px solid var(--border-card) !important;
+  color: var(--text-primary) !important;
+  transition: all 0.15s ease;
+}
+
+select#project-select:hover, button.control-btn:hover {
+  border-color: var(--border-hover) !important;
+}
+
+/* Inspector Bar */
+#inspector-bar {
+  background-color: var(--bg-header) !important;
+  border: 1px solid var(--border-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* --- 3. HIGH READABILITY CONTRAST OVERRIDES --- */
+
+body.theme-night .text-slate-900,
+body.theme-night .text-slate-800,
+body.theme-night .text-slate-700 {
+  color: #f8fafc !important;
+}
+
+body.theme-night .text-slate-600,
+body.theme-night .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+body.theme-night .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+body.theme-night .text-purple-900,
+body.theme-night .text-indigo-950,
+body.theme-night .text-blue-900 {
+  color: #e2e8f0 !important;
+}
+
+body.theme-night .border-slate-100,
+body.theme-night .border-slate-200 {
+  border-color: #223044 !important;
+}
+
+body.theme-sunset .text-slate-900,
+body.theme-sunset .text-slate-800 {
+  color: #431407 !important;
+}
+
+body.theme-sunset .text-slate-700,
+body.theme-sunset .text-slate-600 {
+  color: #78350f !important;
+}
+
+body.theme-sunset .text-slate-500 {
+  color: #9a3412 !important;
+}
+
+body.theme-sunset .border-slate-100,
+body.theme-sunset .border-slate-200 {
+  border-color: #fed7aa !important;
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
