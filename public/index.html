@@ -17,12 +17,12 @@
 
   <!-- Top Navigation Header -->
   <header id="main-header" class="backdrop-blur-md sticky top-0 z-40 px-5 py-2.5 flex flex-wrap items-center justify-between gap-4 shadow-sm shrink-0">
-    <!-- Branding -->
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+    <!-- Branding & Unified Workspace Switcher -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
         AG
       </div>
-      <div>
+      <div class="hidden sm:block shrink-0">
         <div class="flex items-center gap-2">
           <span class="font-bold text-sm" style="color: var(--text-primary);">Antigravity Studio</span>
           <span id="conn-pill" class="status-pill status-live">
@@ -30,7 +30,51 @@
             <span id="conn-text">LIVE</span>
           </span>
         </div>
-        <p class="text-[11px]" style="color: var(--text-muted);">Autonomous Multi-Agent Workspace</p>
+      </div>
+
+      <!-- Divider -->
+      <div class="hidden md:block w-px h-5 bg-[var(--border-card)]"></div>
+
+      <!-- Unified Workspace & Session Switcher Trigger -->
+      <div class="relative" id="workspace-switcher-wrapper">
+        <button id="workspace-switcher-trigger" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--border-card)] bg-[var(--surface-card)] hover:border-[var(--border-hover)] text-xs transition shadow-sm max-w-[280px] sm:max-w-[360px] md:max-w-[440px]">
+          <span id="switcher-live-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+          <span id="switcher-proj-name" class="font-bold truncate" style="color: var(--text-primary);">Detecting...</span>
+          <span class="opacity-40 shrink-0">›</span>
+          <span id="switcher-session-title" class="truncate text-[11px]" style="color: var(--text-secondary);">Connecting stream...</span>
+          <svg class="w-3.5 h-3.5 opacity-60 shrink-0 ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+
+        <!-- Floating Command Popover -->
+        <div id="workspace-popover" class="hidden absolute top-full left-0 mt-1.5 w-[360px] sm:w-[420px] rounded-lg shadow-2xl border border-[var(--border-card)] bg-[var(--surface-card)] z-50 flex flex-col overflow-hidden">
+          <!-- Active Sessions Section -->
+          <div class="p-2 border-b border-[var(--border-card)]">
+            <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center justify-between" style="color: var(--text-muted);">
+              <span>Active Conversations</span>
+              <span id="popover-active-count" class="font-mono text-[9px] font-semibold">1 Active</span>
+            </div>
+            <div id="popover-active-list" class="space-y-1 max-h-48 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- All Workspaces Section -->
+          <div class="p-2 border-b border-[var(--border-card)]">
+            <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider" style="color: var(--text-muted);">
+              Workspaces
+            </div>
+            <div id="popover-workspace-list" class="space-y-0.5 max-h-44 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- Footer: Auto-Follow Toggle -->
+          <div class="p-2.5 flex items-center justify-between text-xs" style="background-color: var(--surface-muted);">
+            <div class="flex items-center gap-1.5">
+              <span id="popover-autofollow-dot" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+              <span class="text-[11px] font-medium" style="color: var(--text-secondary);">Auto-follow active session</span>
+            </div>
+            <button id="popover-autofollow-btn" class="px-2.5 py-1 rounded text-[11px] font-bold border transition" style="background: var(--surface-card); border-color: var(--border-card); color: var(--text-primary);">
+              ON
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -76,31 +120,8 @@
     </div>
   </header>
 
-  <!-- Live Workspace & Active Sessions Navigation Strip -->
-  <div id="active-sessions-bar" class="w-full max-w-[1720px] mx-auto px-3 md:px-4 py-2 flex flex-wrap items-center justify-between gap-3 shrink-0">
-    <!-- Left: Live Active Sessions Chips Carousel -->
-    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0" id="active-sessions-chips">
-      <!-- Dynamically populated session chips -->
-    </div>
-
-    <!-- Right: Consolidated Workspace Picker & Auto-Follow Toggle -->
-    <div class="flex items-center gap-2.5 shrink-0">
-      <div class="relative flex items-center gap-1.5">
-        <label for="project-select" class="text-xs font-medium text-slate-500 select-none">Workspace:</label>
-        <select id="project-select" class="text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition cursor-pointer shadow-sm">
-          <option value="" disabled selected>Loading Workspaces...</option>
-        </select>
-      </div>
-
-      <button id="toggle-autofollow" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm" title="Toggle auto-follow across active workspaces">
-        <span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-        <span>Auto-Follow: ON</span>
-      </button>
-    </div>
-  </div>
-
   <!-- Main Viewport (Zero-Scroll Widescreen 2-Column Split Dashboard) -->
-  <main class="flex-1 w-full max-w-[1720px] mx-auto p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-106px)] lg:overflow-hidden items-start">
+  <main class="flex-1 w-full max-w-[1720px] mx-auto p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-56px)] lg:overflow-hidden items-start">
 
     <!-- Left Stage: Interactive Architectural Studio & Roster (8 cols on lg) -->
     <div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-3.5 lg:h-full lg:overflow-hidden">

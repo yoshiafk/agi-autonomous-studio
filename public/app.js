@@ -15,6 +15,7 @@ let cachedMissionSteps = [];
 const appUrlParams = new URLSearchParams(window.location.search);
 const excludeConvId = appUrlParams.get('exclude_conv_id') || "";
 let activeSessionsCache = [];
+let projectsListCache = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   officeSim = new OfficeSimulator('officeCanvas');
@@ -86,35 +87,54 @@ function initAtmosphereControls() {
 }
 
 function initUIEvents() {
-  const projectSelect = document.getElementById('project-select');
-  const toggleBtn = document.getElementById('toggle-autofollow');
   const refreshBtn = document.getElementById('btn-refresh');
   const demoBtn = document.getElementById('btn-simulate');
   const audioBtn = document.getElementById('btn-audio-toggle');
 
-  projectSelect.addEventListener('change', (e) => {
-    const selected = e.target.value;
-    if (selected) {
-      if (autoFollowEnabled) {
-        autoFollowEnabled = false;
-        updateAutoFollowButton();
+  // Unified Workspace Switcher & Popover
+  const switcherWrapper = document.getElementById('workspace-switcher-wrapper');
+  const switcherTrigger = document.getElementById('workspace-switcher-trigger');
+  const workspacePopover = document.getElementById('workspace-popover');
+  const autofollowBtn = document.getElementById('popover-autofollow-btn');
+
+  if (switcherTrigger && workspacePopover) {
+    switcherTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      workspacePopover.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (switcherWrapper && !switcherWrapper.contains(e.target)) {
+        workspacePopover.classList.add('hidden');
       }
-      localStorage.setItem('antigravity_selected_project', selected);
-      switchProject(selected);
-    }
-  });
+    });
 
-  toggleBtn.addEventListener('click', () => {
-    autoFollowEnabled = !autoFollowEnabled;
-    updateAutoFollowButton();
-    if (autoFollowEnabled) {
-      checkActiveProject(true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        workspacePopover.classList.add('hidden');
+      }
+    });
+  }
+
+  if (autofollowBtn) {
+    autofollowBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      autoFollowEnabled = !autoFollowEnabled;
+      updateAutoFollowButton();
+      if (autoFollowEnabled) {
+        checkActiveProject(true);
+        checkActiveSessions();
+      }
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      loadProjects();
       checkActiveSessions();
-    }
-  });
-
-  refreshBtn.addEventListener('click', () => loadProjects());
-  demoBtn.addEventListener('click', runDemoSimulation);
+    });
+  }
+  if (demoBtn) demoBtn.addEventListener('click', runDemoSimulation);
 
   // Chiptune 8-bit Audio Toggle
   if (audioBtn) {
@@ -143,16 +163,21 @@ function initUIEvents() {
 }
 
 function updateAutoFollowButton() {
-  const btn = document.getElementById('toggle-autofollow');
+  const btn = document.getElementById('popover-autofollow-btn');
+  const dot = document.getElementById('popover-autofollow-dot');
   if (!btn) return;
   if (autoFollowEnabled) {
-    btn.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-indigo-200/50 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100/50 transition shadow-sm";
-    btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span><span>Auto-Follow: ON</span>`;
-    btn.title = "Auto-Follow is ON: automatically following active workspace sessions";
+    btn.textContent = "ON";
+    btn.className = "px-2.5 py-1 rounded text-[11px] font-bold border transition bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/60 dark:border-blue-800 dark:text-blue-300";
+    if (dot) {
+      dot.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse";
+    }
   } else {
-    btn.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition shadow-sm";
-    btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Auto-Follow: OFF</span>`;
-    btn.title = "Click to turn Auto-Follow ON";
+    btn.textContent = "OFF";
+    btn.className = "px-2.5 py-1 rounded text-[11px] font-bold border transition border-[var(--border-card)] bg-[var(--surface-card)] text-[var(--text-muted)]";
+    if (dot) {
+      dot.className = "w-2 h-2 rounded-full bg-slate-400";
+    }
   }
 }
 
@@ -160,18 +185,9 @@ async function loadProjects() {
   try {
     const res = await fetch('/api/projects');
     const projects = await res.json();
+    projectsListCache = projects;
 
-    const select = document.getElementById('project-select');
-    select.innerHTML = '<option value="" disabled>-- Select Workspace --</option>';
-
-    projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      const statusPrefix = p.active ? '● ' : '○ ';
-      const activeText = p.active ? ' (Active)' : '';
-      opt.textContent = `${statusPrefix}${p.display_name}${activeText}`;
-      select.appendChild(opt);
-    });
+    renderPopoverWorkspaceList(projects);
 
     // Check URL parameters
     const params = new URLSearchParams(window.location.search);
@@ -189,7 +205,6 @@ async function loadProjects() {
       updateAutoFollowButton();
       const match = projects.find(p => p.id === urlProj || p.name.toLowerCase() === urlProj.toLowerCase());
       if (match) {
-        select.value = match.id;
         localStorage.setItem('antigravity_selected_project', match.id);
         switchProject(match.id, projects);
         return;
@@ -201,7 +216,8 @@ async function loadProjects() {
     if (saved) {
       const match = projects.find(p => p.id === saved);
       if (match) {
-        select.value = saved;
+        currentProjectId = match.id;
+        renderPopoverWorkspaceList(projects);
       }
     }
 
@@ -209,6 +225,55 @@ async function loadProjects() {
   } catch (err) {
     console.error("Failed to load projects:", err);
   }
+}
+
+function renderPopoverWorkspaceList(projects) {
+  const container = document.getElementById('popover-workspace-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!projects || projects.length === 0) {
+    container.innerHTML = '<div class="text-[11px] py-1 px-2 text-[var(--text-muted)] italic">No workspaces detected.</div>';
+    return;
+  }
+
+  projects.forEach(p => {
+    const item = document.createElement('div');
+    const isCurrent = (p.id === currentProjectId);
+    item.className = `popover-item ${isCurrent ? 'active' : ''}`;
+    item.dataset.projectId = p.id;
+
+    const dotHtml = p.active 
+      ? '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>'
+      : '<span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>';
+
+    const activeBadge = p.active
+      ? '<span class="badge-steps ml-auto">Active</span>'
+      : '';
+
+    item.innerHTML = `
+      <div class="flex items-center gap-2 min-w-0">
+        ${dotHtml}
+        <span class="font-medium truncate" style="color: var(--text-primary);">${p.display_name}</span>
+      </div>
+      ${activeBadge}
+    `;
+
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const popover = document.getElementById('workspace-popover');
+      if (popover) popover.classList.add('hidden');
+
+      if (autoFollowEnabled) {
+        autoFollowEnabled = false;
+        updateAutoFollowButton();
+      }
+      localStorage.setItem('antigravity_selected_project', p.id);
+      switchProject(p.id, projects);
+    });
+
+    container.appendChild(item);
+  });
 }
 
 async function checkActiveProject(force = false) {
@@ -233,11 +298,7 @@ async function checkActiveProject(force = false) {
       currentConversationId = active.conversation_id;
       currentProjectId = active.project_id;
 
-      const select = document.getElementById('project-select');
-      if (select) {
-        select.value = active.project_id;
-      }
-
+      renderPopoverWorkspaceList(projectsListCache);
       connectToEventStream(active.conversation_id, isActive);
     }
   } catch (err) {
@@ -255,6 +316,14 @@ function onConversationIdle() {
     badgeEl.className = "status-pill status-idle";
     badgeEl.textContent = "IDLE / READY";
   }
+  const switcherDot = document.getElementById('switcher-live-dot');
+  if (switcherDot) {
+    switcherDot.className = "w-2 h-2 rounded-full bg-slate-400 shrink-0";
+  }
+  const switcherSession = document.getElementById('switcher-session-title');
+  if (switcherSession) {
+    switcherSession.textContent = "Studio is Idle & Ready";
+  }
   if (officeSim) {
     officeSim.setAllIdle();
   }
@@ -264,10 +333,11 @@ function onConversationIdle() {
 
 async function switchProject(projectId, projectsCache = null) {
   currentProjectId = projectId;
-  let projects = projectsCache;
-  if (!projects) {
+  let projects = projectsCache || projectsListCache;
+  if (!projects || projects.length === 0) {
     const res = await fetch('/api/projects');
     projects = await res.json();
+    projectsListCache = projects;
   }
 
   const proj = projects.find(p => p.id === projectId);
@@ -283,6 +353,7 @@ async function switchProject(projectId, projectsCache = null) {
     connectToEventStream(convId, proj.active);
   }
 
+  renderPopoverWorkspaceList(projects);
   if (activeSessionsCache && activeSessionsCache.length > 0) {
     renderActiveSessionsBar(activeSessionsCache);
   }
@@ -306,9 +377,28 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
   if (focusBanner && sessionTitle) {
     focusBanner.textContent = sessionTitle;
   }
+
+  // Update Header Breadcrumb Switcher Trigger
+  const switcherProj = document.getElementById('switcher-proj-name');
+  const switcherSession = document.getElementById('switcher-session-title');
+  const switcherDot = document.getElementById('switcher-live-dot');
+
+  if (switcherProj) {
+    switcherProj.textContent = projectName || "Detecting...";
+  }
+  if (switcherSession) {
+    switcherSession.textContent = sessionTitle || (isActive ? "Streaming live actions..." : "Idle / Ready");
+  }
+  if (switcherDot) {
+    if (isActive) {
+      switcherDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0";
+    } else {
+      switcherDot.className = "w-2 h-2 rounded-full bg-slate-400 shrink-0";
+    }
+  }
 }
 
-// --- Multi-Session Live Detection & Instant Switcher Bar ---
+// --- Multi-Session Live Detection & Instant Popover Switcher ---
 
 async function checkActiveSessions() {
   try {
@@ -332,62 +422,55 @@ async function checkActiveSessions() {
 }
 
 function renderActiveSessionsBar(sessions) {
-  const container = document.getElementById('active-sessions-chips');
-  const countBadge = document.getElementById('active-sessions-count-text');
-  if (!container) return;
+  const container = document.getElementById('popover-active-list');
+  const countBadge = document.getElementById('popover-active-count');
 
   if (!Array.isArray(sessions)) sessions = [];
   activeSessionsCache = sessions;
 
   const activeCount = sessions.filter(s => s.active).length;
   if (countBadge) {
-    if (activeCount > 1) {
-      countBadge.textContent = `${activeCount} Active Sessions • Instant Switch`;
-    } else if (activeCount === 1) {
-      countBadge.textContent = `1 Active Session`;
-    } else {
-      countBadge.textContent = `Studio Ready • Monitoring Workspaces`;
-    }
+    countBadge.textContent = activeCount === 1 ? '1 Active' : `${activeCount} Active`;
   }
 
+  if (!container) return;
   container.innerHTML = "";
 
   if (sessions.length === 0) {
     container.innerHTML = `
-      <span class="text-xs text-slate-400 italic py-1 flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span> No active background sessions running.
-      </span>
+      <div class="text-[11px] py-1.5 px-2 text-[var(--text-muted)] italic">
+        No active background sessions running.
+      </div>
     `;
     return;
   }
 
-  const label = document.createElement('span');
-  label.className = "text-xs font-semibold text-slate-400 shrink-0 mr-1 select-none flex items-center gap-1.5";
-  label.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span> <span>Active:</span>`;
-  container.appendChild(label);
-
   sessions.forEach(s => {
     const isCurrent = (s.conversation_id === currentConversationId);
-    const chip = document.createElement('button');
-    chip.className = `session-chip ${isCurrent ? 'active' : ''} ${s.active ? '' : 'idle-chip'}`;
-    chip.title = `Project: ${s.project_name}\nTask: ${s.title}\nStatus: ${s.active ? 'ACTIVE' : 'IDLE'}\nClick to view instantly`;
+    const item = document.createElement('div');
+    item.className = `popover-item ${isCurrent ? 'active' : ''} ${s.active ? '' : 'idle-item'}`;
+    item.title = `Project: ${s.project_name}\nTask: ${s.title}\nStatus: ${s.active ? 'ACTIVE' : 'IDLE'}`;
 
     const pulseDot = `<span class="pulse-dot"></span>`;
-    const projLabel = `<strong class="text-xs truncate max-w-[130px]">${s.project_name}</strong>`;
-    const titleShort = s.title ? (s.title.length > 26 ? s.title.slice(0, 24) + '..' : s.title) : 'Active Task';
-    const taskSpan = `<span class="truncate max-w-[180px] text-[11px] opacity-80">${titleShort}</span>`;
+    const titleShort = s.title ? (s.title.length > 30 ? s.title.slice(0, 28) + '..' : s.title) : 'Active Task';
     const stepsBadge = s.steps ? `<span class="badge-steps shrink-0">${s.steps} steps</span>` : '';
 
-    chip.innerHTML = `
-      ${pulseDot}
-      ${projLabel}
-      <span class="opacity-40">•</span>
-      ${taskSpan}
+    item.innerHTML = `
+      <div class="flex items-center gap-2 min-w-0 pr-2">
+        ${pulseDot}
+        <div class="truncate">
+          <div class="font-bold text-[11.5px] truncate leading-tight" style="color: var(--text-primary);">${s.project_name}</div>
+          <div class="text-[10px] truncate leading-tight" style="color: var(--text-muted);">${titleShort}</div>
+        </div>
+      </div>
       ${stepsBadge}
     `;
 
-    chip.addEventListener('click', (e) => {
-      e.preventDefault();
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const popover = document.getElementById('workspace-popover');
+      if (popover) popover.classList.add('hidden');
+
       if (autoFollowEnabled) {
         autoFollowEnabled = false;
         updateAutoFollowButton();
@@ -395,7 +478,7 @@ function renderActiveSessionsBar(sessions) {
       switchSession(s.conversation_id, s.project_name, s.project_id, s.title, s.active);
     });
 
-    container.appendChild(chip);
+    container.appendChild(item);
   });
 }
 
@@ -408,17 +491,11 @@ function switchSession(convId, projName, projId, title, isActive) {
   // Instantly update header display
   updateActiveHeader(projName, title, isActive);
 
-  // Update project dropdown if matching
-  const select = document.getElementById('project-select');
-  if (select) {
-    const match = Array.from(select.options).find(o => o.value === projId);
-    if (match) select.value = projId;
-  }
-
   // Connect with instant hydration (no 1500-step replay!)
   connectToEventStream(convId, isActive);
 
-  // Refresh active chips UI
+  // Refresh popover items
+  renderPopoverWorkspaceList(projectsListCache);
   if (activeSessionsCache && activeSessionsCache.length > 0) {
     renderActiveSessionsBar(activeSessionsCache);
   }
