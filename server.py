@@ -56,8 +56,46 @@ print(f"[*] Antigravity Data Dir:   {DATA_DIR}")
 print(f"[*] Antigravity Config Dir: {CONFIG_DIR}")
 print(f"[*] Static Web UI Dir:      {PUBLIC_DIR}")
 
-# Global state for active session broadcast
+# Global state for active session broadcast & manifest cache
 LATEST_ACTIVATION = {"conversation_id": None, "workspace": None, "timestamp": 0}
+_PROJECT_MANIFESTS_CACHE = {"data": {}, "last_scanned": 0}
+
+def get_project_manifests(ttl=10.0):
+    """Returns cached project manifests from ~/.gemini/config/projects/*.json with a TTL."""
+    now = time.time()
+    if (now - _PROJECT_MANIFESTS_CACHE["last_scanned"] < ttl) and _PROJECT_MANIFESTS_CACHE["data"]:
+        return _PROJECT_MANIFESTS_CACHE["data"]
+
+    manifests = {}
+    projects_dir = CONFIG_DIR / "projects"
+    if projects_dir.exists():
+        for p_file in projects_dir.glob("*.json"):
+            try:
+                data = json.loads(p_file.read_text(encoding="utf-8"))
+                p_id = data.get("id") or p_file.stem
+                p_name = data.get("name") or p_id
+
+                paths = []
+                resources = data.get("projectResources", {}).get("resources", [])
+                for r in resources:
+                    folder_uri = r.get("gitFolder", {}).get("folderUri", "")
+                    if folder_uri:
+                        decoded = urllib.parse.unquote(folder_uri).replace("file:///", "")
+                        folder_name = decoded.rstrip("/").split("/")[-1]
+                        paths.append({"name": folder_name, "path": decoded})
+
+                manifests[p_id] = {
+                    "id": p_id,
+                    "name": p_name,
+                    "folders": paths,
+                    "display_name": p_name if p_name != p_id else (paths[0]["name"] if paths else p_id),
+                }
+            except Exception:
+                pass
+
+    _PROJECT_MANIFESTS_CACHE["data"] = manifests
+    _PROJECT_MANIFESTS_CACHE["last_scanned"] = now
+    return manifests
 
 def get_db_connection():
     """Returns read-only, immutable SQLite connection to conversation_summaries.db."""
@@ -73,49 +111,27 @@ def get_db_connection():
         return None
 
 def scan_projects():
-    """Scans and groups all projects from ~/.gemini/config/projects and database."""
+    """Scans and groups all projects using in-memory manifest cache and database."""
+    manifests = get_project_manifests()
     projects_dict = {}
 
-    # 1. Read registered project manifests from ~/.gemini/config/projects/*.json
-    projects_dir = CONFIG_DIR / "projects"
-    if projects_dir.exists():
-        for p_file in projects_dir.glob("*.json"):
-            try:
-                data = json.loads(p_file.read_text(encoding="utf-8"))
-                p_id = data.get("id") or p_file.stem
-                p_name = data.get("name") or p_id
-                
-                # Extract workspace paths
-                paths = []
-                resources = data.get("projectResources", {}).get("resources", [])
-                for r in resources:
-                    folder_uri = r.get("gitFolder", {}).get("folderUri", "")
-                    if folder_uri:
-                        # Unquote file:///z%3A/home/yoshiafk/...
-                        decoded = urllib.parse.unquote(folder_uri).replace("file:///", "")
-                        # Extract folder name
-                        folder_name = decoded.rstrip("/").split("/")[-1]
-                        paths.append({"name": folder_name, "path": decoded})
+    for p_id, m in manifests.items():
+        projects_dict[p_id] = {
+            "id": p_id,
+            "name": m["name"],
+            "folders": m["folders"],
+            "display_name": m["display_name"],
+            "active": False,
+            "total_conversations": 0,
+            "latest_conversation_id": None,
+            "latest_modified": "",
+            "conversations": []
+        }
 
-                projects_dict[p_id] = {
-                    "id": p_id,
-                    "name": p_name,
-                    "folders": paths,
-                    "display_name": p_name if p_name != p_id else (paths[0]["name"] if paths else p_id),
-                    "active": False,
-                    "total_conversations": 0,
-                    "latest_conversation_id": None,
-                    "latest_modified": "",
-                    "conversations": []
-                }
-            except Exception as e:
-                pass
-
-    # 2. Query conversation_summaries.db for active conversations and recent titles
+    # Query conversation_summaries.db for active conversations and recent titles
     conn = get_db_connection()
     if conn:
         try:
-            # Load project mapping overrides if any
             mapping_file = CONFIG_DIR / "conversation_project_map.json"
             conv_map = {}
             if mapping_file.exists():
@@ -181,7 +197,6 @@ def scan_projects():
         finally:
             conn.close()
 
-    # Sort projects: Active first, then by latest modified timestamp
     sorted_projects = sorted(
         projects_dict.values(),
         key=lambda p: (1 if p["active"] else 0, p["latest_modified"]),
@@ -189,15 +204,15 @@ def scan_projects():
     )
     return sorted_projects
 
-def find_active_conversation(project_filter=None, exclude_conv=None):
-    """Finds the currently running conversation (not_fully_idle = 1) or most recent."""
+def find_all_active_sessions(exclude_conv="7f270c91-8b98-45aa-9bfd-311aa2a47b72"):
+    """Returns list of all active or recently active conversations across projects."""
     conn = get_db_connection()
     if not conn:
-        return None
+        return []
     try:
-        cur = conn.cursor()
-        
-        # Load project mapping overrides if any
+        manifests = get_project_manifests()
+        proj_names = {pid: m["display_name"] for pid, m in manifests.items()}
+
         mapping_file = CONFIG_DIR / "conversation_project_map.json"
         conv_map = {}
         if mapping_file.exists():
@@ -206,33 +221,25 @@ def find_active_conversation(project_filter=None, exclude_conv=None):
             except Exception:
                 pass
 
-        # Load project manifests to get clean display names
-        projects_dir = CONFIG_DIR / "projects"
-        proj_names = {}
-        if projects_dir.exists():
-            for p_file in projects_dir.glob("*.json"):
-                try:
-                    p_data = json.loads(p_file.read_text(encoding="utf-8"))
-                    pid = p_data.get("id") or p_file.stem
-                    pname = p_data.get("name") or pid
-                    proj_names[pid] = pname
-                except Exception:
-                    pass
-
+        cur = conn.cursor()
         cur.execute("""
-            SELECT conversation_id, project_id, title, not_fully_idle, last_modified_time
+            SELECT conversation_id, project_id, title, not_fully_idle, last_modified_time, step_count
             FROM conversation_summaries
             ORDER BY last_modified_time DESC
+            LIMIT 50
         """)
         rows = cur.fetchall()
 
-        candidates = []
+        active_sessions = []
+        recent_sessions = []
+
         for row in rows:
             cid = row[0]
             raw_pid = row[1] or "outside-of-project"
             title = row[2] or "(Untitled Session)"
             is_active = bool(row[3] == 1)
             mtime = row[4]
+            steps = row[5] or 0
             resolved_pid = conv_map.get(cid) or raw_pid
 
             if exclude_conv and cid == exclude_conv:
@@ -240,31 +247,66 @@ def find_active_conversation(project_filter=None, exclude_conv=None):
 
             p_display = proj_names.get(resolved_pid, resolved_pid)
 
-            if project_filter:
-                if resolved_pid != project_filter and p_display.lower() != project_filter.lower():
-                    continue
-
-            item = {
+            session_item = {
                 "conversation_id": cid,
                 "project_id": resolved_pid,
                 "project_name": p_display,
                 "title": title,
                 "active": is_active,
-                "modified": mtime
+                "modified": mtime,
+                "steps": steps
             }
 
             if is_active:
-                return item
-            candidates.append(item)
+                active_sessions.append(session_item)
+            elif len(recent_sessions) < 6:
+                recent_sessions.append(session_item)
 
-        if candidates:
-            return candidates[0]
-        return None
+        # Return all active sessions, or top recent sessions if none are active
+        return active_sessions if active_sessions else recent_sessions[:4]
     except Exception as e:
-        print(f"[!] Error finding active conversation: {e}", file=sys.stderr)
-        return None
+        print(f"[!] Error finding active sessions: {e}", file=sys.stderr)
+        return []
     finally:
         conn.close()
+
+def find_active_conversation(project_filter=None, exclude_conv=None):
+    """Finds the currently running conversation (not_fully_idle = 1) or most recent."""
+    sessions = find_all_active_sessions(exclude_conv=exclude_conv)
+    if project_filter:
+        for s in sessions:
+            if s["project_id"] == project_filter or s["project_name"].lower() == project_filter.lower():
+                return s
+        # Fallback to direct query if not in top active list
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT conversation_id, project_id, title, not_fully_idle, last_modified_time
+                    FROM conversation_summaries
+                    WHERE project_id = ?
+                    ORDER BY last_modified_time DESC
+                    LIMIT 1
+                """, (project_filter,))
+                row = cur.fetchone()
+                if row:
+                    manifests = get_project_manifests()
+                    p_disp = manifests.get(row[1], {}).get("display_name", row[1])
+                    return {
+                        "conversation_id": row[0],
+                        "project_id": row[1],
+                        "project_name": p_disp,
+                        "title": row[2] or "(Untitled Session)",
+                        "active": bool(row[3] == 1),
+                        "modified": row[4]
+                    }
+            except Exception:
+                pass
+            finally:
+                conn.close()
+
+    return sessions[0] if sessions else None
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -348,7 +390,19 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(active or {}).encode("utf-8"))
             return
 
-        # 3. API: Server-Sent Events (SSE) live streaming
+        # 3. API: Get all active / concurrent sessions (multi-session live detection)
+        if path == "/api/sessions/active":
+            exclude_conv = query.get("exclude_conv_id", ["7f270c91-8b98-45aa-9bfd-311aa2a47b72"])[0]
+            sessions = find_all_active_sessions(exclude_conv=exclude_conv)
+            self.send_response(200)
+            self.send_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(json.dumps(sessions).encode("utf-8"))
+            return
+
+        # 4. API: Server-Sent Events (SSE) live streaming
         if path == "/api/events":
             conv_id = query.get("conversation_id", [None])[0]
             if not conv_id:
@@ -365,11 +419,11 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.handle_sse_stream(conv_id)
             return
 
-        # 4. Static Frontend Assets
+        # 5. Static Frontend Assets
         self.serve_static_file(path)
 
     def handle_sse_stream(self, conv_id):
-        """Streams steps and events from transcript.jsonl using Server-Sent Events."""
+        """Streams steps and events from transcript.jsonl using Server-Sent Events with fast initial hydration."""
         transcript_path = DATA_DIR / "brain" / conv_id / ".system_generated" / "logs" / "transcript.jsonl"
         plan_path = DATA_DIR / "brain" / conv_id / ".system_generated" / "swarm" / "plan.json"
 
@@ -386,13 +440,59 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(f"event: init\ndata: {init_event}\n\n".encode("utf-8"))
         self.wfile.flush()
 
+        # Fast Initial Hydration: pre-compute state on server, avoiding client-side 1500-step replay freeze
+        initial_state = {
+            "conversation_id": conv_id,
+            "total_steps": 0,
+            "focus": None,
+            "steps": [],
+            "recent_steps": []
+        }
+
         last_line_idx = 0
+        if transcript_path.exists():
+            try:
+                with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+                    all_lines = f.readlines()
+                initial_state["total_steps"] = len(all_lines)
+                last_line_idx = len(all_lines)
+
+                recent_raw = []
+                for line in reversed(all_lines):
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    try:
+                        step_data = json.loads(line_str)
+                        if not initial_state["focus"] and step_data.get("tool_calls"):
+                            for tc in step_data["tool_calls"]:
+                                if tc.get("name") == "update_focus" and tc.get("args", {}).get("focus"):
+                                    initial_state["focus"] = tc["args"]["focus"]
+                        if not initial_state["steps"] and step_data.get("tool_calls"):
+                            for tc in step_data["tool_calls"]:
+                                if tc.get("name") == "update_steps" and tc.get("args", {}).get("steps"):
+                                    initial_state["steps"] = tc["args"]["steps"]
+                        if len(recent_raw) < 25:
+                            recent_raw.append(step_data)
+                    except Exception:
+                        pass
+                    if initial_state["focus"] and initial_state["steps"] and len(recent_raw) >= 25:
+                        break
+
+                initial_state["recent_steps"] = list(reversed(recent_raw))
+            except Exception as e:
+                print(f"[!] Initial hydration error: {e}", file=sys.stderr)
+
+        self.wfile.write(f"event: initial_state\ndata: {json.dumps(initial_state)}\n\n".encode("utf-8"))
+        self.wfile.flush()
+
         last_heartbeat = time.time()
+        last_sessions_broadcast = 0
         last_plan_mtime = 0
 
         try:
             while True:
-                # 1. Read transcript.jsonl
+                # 1. Stream only newly appended transcript steps (zero replay overhead!)
                 if transcript_path.exists():
                     try:
                         with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
@@ -404,7 +504,7 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
                                         self.wfile.write(f"event: step\ndata: {line_str}\n\n".encode("utf-8"))
                                 last_line_idx = len(lines)
                                 self.wfile.flush()
-                    except Exception as e:
+                    except Exception:
                         pass
 
                 # 2. Check swarm plan.json
@@ -426,14 +526,24 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(f"event: activate\ndata: {act_json}\n\n".encode("utf-8"))
                     self.wfile.flush()
 
-                # 4. Periodic heartbeat
+                # 4. Broadcast active sessions every 2.5 seconds
                 now = time.time()
+                if now - last_sessions_broadcast > 2.5:
+                    try:
+                        active_list = find_all_active_sessions()
+                        self.wfile.write(f"event: active_sessions\ndata: {json.dumps(active_list)}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except Exception:
+                        pass
+                    last_sessions_broadcast = now
+
+                # 5. Periodic heartbeat
                 if now - last_heartbeat > 5.0:
                     self.wfile.write(f"event: heartbeat\ndata: {{\"time\": {now}}}\n\n".encode("utf-8"))
                     self.wfile.flush()
                     last_heartbeat = now
 
-                time.sleep(0.4)
+                time.sleep(0.3)
         except (BrokenPipeError, ConnectionResetError):
             pass
 

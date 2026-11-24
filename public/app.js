@@ -13,6 +13,7 @@ let totalStepsCount = 0;
 let lastKnownActive = null;
 let cachedMissionSteps = [];
 const META_CONVERSATION_ID = "7f270c91-8b98-45aa-9bfd-311aa2a47b72";
+let activeSessionsCache = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   officeSim = new OfficeSimulator('officeCanvas');
@@ -21,13 +22,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initAtmosphereControls();
   initUIEvents();
   loadProjects();
+  checkActiveSessions();
 
-  // Periodic polling for active workspace
+  // Periodic polling for active workspace and multi-session detection
   setInterval(() => {
+    checkActiveSessions();
     if (autoFollowEnabled) {
       checkActiveProject();
     }
-  }, 2500);
+  }, 2000);
 });
 
 function initAtmosphereControls() {
@@ -268,6 +271,10 @@ async function switchProject(projectId, projectsCache = null) {
   if (convId) {
     connectToEventStream(convId, proj.active);
   }
+
+  if (activeSessionsCache && activeSessionsCache.length > 0) {
+    renderActiveSessionsBar(activeSessionsCache);
+  }
 }
 
 function updateActiveHeader(projectName, sessionTitle, isActive) {
@@ -287,6 +294,164 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
   }
   if (focusBanner && sessionTitle) {
     focusBanner.textContent = sessionTitle;
+  }
+}
+
+// --- Multi-Session Live Detection & Instant Switcher Bar ---
+
+async function checkActiveSessions() {
+  try {
+    const res = await fetch(`/api/sessions/active?exclude_conv_id=${META_CONVERSATION_ID}`);
+    const sessions = await res.json();
+    renderActiveSessionsBar(sessions);
+
+    // If auto-follow is active and we don't have a session currently selected
+    if (autoFollowEnabled && sessions && sessions.length > 0) {
+      if (!currentConversationId) {
+        const top = sessions.find(s => s.active) || sessions[0];
+        if (top) {
+          switchSession(top.conversation_id, top.project_name, top.project_id, top.title, top.active);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Check active sessions error:", err);
+  }
+}
+
+function renderActiveSessionsBar(sessions) {
+  const container = document.getElementById('active-sessions-chips');
+  const countBadge = document.getElementById('active-sessions-count-text');
+  if (!container) return;
+
+  if (!Array.isArray(sessions)) sessions = [];
+  activeSessionsCache = sessions;
+
+  const activeCount = sessions.filter(s => s.active).length;
+  if (countBadge) {
+    if (activeCount > 1) {
+      countBadge.textContent = `${activeCount} Active Sessions • Instant Switch`;
+    } else if (activeCount === 1) {
+      countBadge.textContent = `1 Active Session`;
+    } else {
+      countBadge.textContent = `Studio Ready • Monitoring Workspaces`;
+    }
+  }
+
+  container.innerHTML = "";
+
+  if (sessions.length === 0) {
+    container.innerHTML = `
+      <span class="text-[11.5px] text-slate-400 italic py-0.5">
+        No active background sessions detected.
+      </span>
+    `;
+    return;
+  }
+
+  sessions.forEach(s => {
+    const isCurrent = (s.conversation_id === currentConversationId);
+    const chip = document.createElement('button');
+    chip.className = `session-chip ${isCurrent ? 'active' : ''} ${s.active ? '' : 'idle-chip'}`;
+    chip.title = `Project: ${s.project_name}\nTask: ${s.title}\nStatus: ${s.active ? 'ACTIVE' : 'IDLE'}\nClick to view instantly`;
+
+    const pulseDot = `<span class="pulse-dot"></span>`;
+    const projLabel = `<strong class="text-xs truncate max-w-[130px]">${s.project_name}</strong>`;
+    const titleShort = s.title ? (s.title.length > 26 ? s.title.slice(0, 24) + '..' : s.title) : 'Active Task';
+    const taskSpan = `<span class="truncate max-w-[180px] text-[11px] opacity-80">${titleShort}</span>`;
+    const stepsBadge = s.steps ? `<span class="badge-steps shrink-0">${s.steps} steps</span>` : '';
+
+    chip.innerHTML = `
+      ${pulseDot}
+      ${projLabel}
+      <span class="opacity-40">•</span>
+      ${taskSpan}
+      ${stepsBadge}
+    `;
+
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchSession(s.conversation_id, s.project_name, s.project_id, s.title, s.active);
+    });
+
+    container.appendChild(chip);
+  });
+}
+
+function switchSession(convId, projName, projId, title, isActive) {
+  if (convId === currentConversationId) return;
+
+  currentConversationId = convId;
+  currentProjectId = projId;
+
+  // Instantly update header display
+  updateActiveHeader(projName, title, isActive);
+
+  // Update project dropdown if matching
+  const select = document.getElementById('project-select');
+  if (select) {
+    const match = Array.from(select.options).find(o => o.value === projId);
+    if (match) select.value = projId;
+  }
+
+  // Connect with instant hydration (no 1500-step replay!)
+  connectToEventStream(convId, isActive);
+
+  // Refresh active chips UI
+  if (activeSessionsCache && activeSessionsCache.length > 0) {
+    renderActiveSessionsBar(activeSessionsCache);
+  }
+}
+
+function handleInitialState(data) {
+  if (!data) return;
+
+  // 1. Total Step Counter
+  totalStepsCount = data.total_steps || 0;
+  const counter = document.getElementById('step-counter');
+  if (counter) counter.textContent = totalStepsCount;
+
+  // 2. Focus
+  if (data.focus) {
+    let cleanFocus = data.focus;
+    if (typeof cleanFocus === 'string') {
+      cleanFocus = cleanFocus.replace(/^["']|["']$/g, '').trim();
+    }
+    const focusBanner = document.getElementById('focus-banner-text');
+    if (focusBanner) focusBanner.textContent = cleanFocus;
+    renderFocusCard(cleanFocus);
+    if (officeSim) officeSim.handleToolAction("update_focus", { focus: cleanFocus });
+  }
+
+  // 3. Roadmap steps
+  if (data.steps && data.steps.length > 0) {
+    let stepsData = data.steps;
+    if (typeof stepsData === 'string') {
+      try { stepsData = JSON.parse(stepsData); } catch (e) { stepsData = []; }
+    }
+    cachedMissionSteps = stepsData;
+    renderRoadmapPipeline(stepsData);
+    if (officeSim) officeSim.handleToolAction("update_steps", { steps: stepsData });
+  } else {
+    renderRoadmapPipeline([]);
+  }
+
+  // 4. Render recent steps into feed & set specialist states in 1 frame (<15ms)
+  const feed = document.getElementById('action-feed');
+  if (feed) feed.innerHTML = "";
+
+  if (data.recent_steps && Array.isArray(data.recent_steps)) {
+    data.recent_steps.forEach(st => {
+      handleStepEvent(st, true);
+    });
+
+    if (data.recent_steps.length > 0 && officeSim) {
+      const lastStep = data.recent_steps[data.recent_steps.length - 1];
+      if (lastStep.tool_calls && lastStep.tool_calls.length > 0) {
+        const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
+        officeSim.handleToolAction(tc.name, tc.args || {});
+      }
+    }
   }
 }
 
@@ -332,6 +497,24 @@ function connectToEventStream(conversationId, isActive = true) {
     if (connText) connText.textContent = "LIVE";
   });
 
+  // Fast Instant Hydration: avoids 1,500+ step replay freeze
+  eventSource.addEventListener('initial_state', (e) => {
+    try {
+      const initData = JSON.parse(e.data);
+      handleInitialState(initData);
+    } catch (err) {
+      console.error("Initial state parse error:", err);
+    }
+  });
+
+  // Real-time active sessions broadcast
+  eventSource.addEventListener('active_sessions', (e) => {
+    try {
+      const activeList = JSON.parse(e.data);
+      renderActiveSessionsBar(activeList);
+    } catch (err) {}
+  });
+
   eventSource.addEventListener('step', (e) => {
     try {
       const step = JSON.parse(e.data);
@@ -345,6 +528,7 @@ function connectToEventStream(conversationId, isActive = true) {
     try {
       const act = JSON.parse(e.data);
       renderGenericCard("🚀 Session Started", act.workspace || act.conversation_id, "action-card-info");
+      checkActiveSessions();
       if (autoFollowEnabled && act.conversation_id !== currentConversationId) {
         checkActiveProject(true);
       }
@@ -357,10 +541,12 @@ function connectToEventStream(conversationId, isActive = true) {
   };
 }
 
-function handleStepEvent(step) {
-  totalStepsCount++;
-  const counter = document.getElementById('step-counter');
-  if (counter) counter.textContent = totalStepsCount;
+function handleStepEvent(step, isHydrate = false) {
+  if (!isHydrate) {
+    totalStepsCount++;
+    const counter = document.getElementById('step-counter');
+    if (counter) counter.textContent = totalStepsCount;
+  }
 
   // 1. Detect Commands (/plan, /research, /goal)
   if (step.type === "USER_INPUT" && step.content) {
