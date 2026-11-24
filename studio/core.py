@@ -444,12 +444,12 @@ def run():
     signal.signal(signal.SIGTERM, shutdown_handler)
 
     print("\n=======================================================")
-    print("🚀 Antigravity Autonomous Studio (Hardened Production)")
-    print(f"🔒 Bound Host:           {HOST} (Loopback Isolated)")
-    print(f"📂 Antigravity Data:     {DATA_DIR}")
-    print(f"⚙️  Antigravity Config:   {CONFIG_DIR}")
-    print(f"🌐 Local Web URL:        http://{HOST}:{PORT}")
-    print(f"📱 Desktop PWA:          http://{HOST}:{PORT}/?auto=true")
+    print("Antigravity Autonomous Studio (Hardened Production)")
+    print(f"Host:                    {HOST} (Loopback Isolated)")
+    print(f"Data Dir:                {DATA_DIR}")
+    print(f"Config Dir:              {CONFIG_DIR}")
+    print(f"Local Web URL:           http://{HOST}:{PORT}")
+    print(f"Desktop PWA:             http://{HOST}:{PORT}/?auto=true")
     print("=======================================================\n")
 
     if args.open_browser:

@@ -35,27 +35,42 @@
 
     <!-- Center Atmosphere Switcher (Day / Sunset / Night / Auto) -->
     <div class="segmented-control">
-      <button id="mode-day" class="segmented-btn active" title="Daylight Lighting">☀️ Day</button>
-      <button id="mode-sunset" class="segmented-btn" title="Golden Hour Sunset">🌅 Sunset</button>
-      <button id="mode-night" class="segmented-btn" title="Cozy Evening Studio">🌙 Night</button>
-      <button id="mode-auto" class="segmented-btn" title="Sync with Local Clock">⏰ Auto</button>
+      <button id="mode-day" class="segmented-btn active" title="Daylight Lighting">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <span>Day</span>
+      </button>
+      <button id="mode-sunset" class="segmented-btn" title="Sunset Ambient">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.93 10.93l1.41 1.41M2 18h2M20 18h2M19.07 10.93l-1.41 1.41M22 22H2M16 6l-4-4-4 4M16 18a4 4 0 0 0-8 0"/></svg>
+        <span>Sunset</span>
+      </button>
+      <button id="mode-night" class="segmented-btn" title="Night Focus">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <span>Night</span>
+      </button>
+      <button id="mode-auto" class="segmented-btn" title="Sync with Local Clock">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Auto</span>
+      </button>
     </div>
 
     <!-- Header Right Controls: Sound & Demo -->
     <div class="flex items-center gap-2">
-      <button id="btn-pwa-install" title="Install as Desktop App" class="hidden control-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition shadow-sm flex items-center gap-1.5">
-        <span>📱</span>
+      <button id="btn-pwa-install" title="Install as Desktop App" class="hidden control-btn px-2.5 py-1.5 rounded-md text-xs font-medium border border-indigo-200/50 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100/50 transition shadow-sm flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
         <span>Install App</span>
       </button>
-      <button id="btn-audio-toggle" title="Toggle 8-bit Chiptune Audio" class="control-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
-        <span id="audio-icon">🔇</span>
+      <button id="btn-audio-toggle" title="Toggle Chiptune Audio" class="control-btn px-2.5 py-1.5 rounded-md text-xs font-medium transition shadow-sm flex items-center gap-1.5">
+        <span id="audio-icon-slot">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>
+        </span>
         <span id="audio-label">Muted</span>
       </button>
-      <button id="btn-refresh" title="Refresh Projects" class="control-btn p-1.5 rounded-lg text-xs transition shadow-sm">
-        🔄
+      <button id="btn-refresh" title="Refresh Projects" class="control-btn p-1.5 rounded-md text-xs transition shadow-sm flex items-center justify-center">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16M16 21h5v-5"/></svg>
       </button>
-      <button id="btn-simulate" title="Simulate Multi-Role Sprint" class="control-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
-        <span>⚡ Demo Sprint</span>
+      <button id="btn-simulate" title="Simulate Multi-Role Sprint" class="control-btn px-2.5 py-1.5 rounded-md text-xs font-semibold transition shadow-sm flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        <span>Demo Sprint</span>
       </button>
     </div>
   </header>
@@ -109,11 +124,12 @@
 
       <!-- Studio Roster: Specialists -->
       <div class="studio-card p-3 flex flex-col gap-2 flex-1 min-h-0 overflow-hidden shadow-sm">
-        <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 text-xs shrink-0">
-          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <span>👥</span> Studio Specialists Roster
+        <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800 text-xs shrink-0">
+          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5 text-slate-500 text-[11px]">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Specialists Roster
           </span>
-          <span class="text-xs font-medium" id="roster-count">1 Online</span>
+          <span class="text-xs font-medium font-mono text-slate-400" id="roster-count">1 Online</span>
         </div>
         <div id="agent-roster-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto flex-1 pr-1">
           <!-- Populated dynamically by office.js -->
@@ -129,20 +145,22 @@
       <div class="studio-card p-3.5 flex flex-col gap-2 shrink-0">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">CURRENT FOCUS</span>
-            <span id="active-project-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">IDLE / READY</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-800/40">CURRENT FOCUS</span>
+            <span id="active-project-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">IDLE / READY</span>
           </div>
           <div class="text-[11px] font-mono text-slate-500">
-            Steps: <strong id="step-counter" class="text-blue-600 font-bold">0</strong>
+            Steps: <strong id="step-counter" class="text-indigo-600 dark:text-indigo-400 font-bold">0</strong>
           </div>
         </div>
         <div class="flex items-start gap-2.5">
-          <span class="text-lg shrink-0 mt-0.5">🎯</span>
+          <span class="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="6"/><line x1="12" x2="12" y1="18" y2="22"/></svg>
+          </span>
           <h2 id="focus-banner-text" class="text-sm font-bold leading-snug line-clamp-2">
             Monitoring active workspace...
           </h2>
         </div>
-        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
           <span class="truncate">Workspace: <strong id="active-project-name">Detecting...</strong></span>
           <span id="stream-status" class="font-mono text-[10px] text-slate-400">Connected</span>
         </div>
@@ -150,9 +168,10 @@
 
       <!-- Live Mission Roadmap Pipeline -->
       <div id="roadmap-container" class="studio-card p-3 flex flex-col gap-2 shrink-0 hidden">
-        <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 text-xs">
-          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <span>📋</span> Mission Roadmap
+        <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800 text-xs">
+          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5 text-slate-500 text-[11px]">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Mission Roadmap
           </span>
           <span class="text-xs font-medium font-mono" id="roadmap-summary">0 / 0 Completed</span>
         </div>
@@ -163,10 +182,10 @@
 
       <!-- Live Execution Feed (Flex-1 scrollable container) -->
       <div class="studio-card p-3.5 flex-1 flex flex-col gap-2 min-h-0 overflow-hidden shadow-sm">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-100 text-xs shrink-0">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 text-xs shrink-0">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="font-bold uppercase tracking-wider">Execution Feed</span>
+            <span class="font-bold uppercase tracking-wider text-slate-500 text-[11px]">Execution Feed</span>
           </div>
           <span class="text-[10px] font-mono text-slate-400">Live Agent Stream</span>
         </div>
@@ -182,6 +201,7 @@
   </main>
 
   <!-- Scripts -->
+  <script src="/icons.js"></script>
   <script src="/audio.js"></script>
   <script src="/office.js"></script>
   <script src="/app.js"></script>

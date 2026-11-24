@@ -15,20 +15,20 @@ from pathlib import Path
 _PROJECT_MANIFESTS_CACHE = {"data": {}, "last_scanned": 0}
 
 AGENT_STYLE_PRESETS = {
-    "lead-architect": {"name": "Lead Architect", "role": "Planner & Coordinator", "color": "#4f46e5", "hair": "#b45309", "shirt": "#e0e7ff", "station": "📋 Strategy Easel"},
-    "core-developer": {"name": "Core Developer", "role": "Full-Stack Engineer", "color": "#059669", "hair": "#334155", "shirt": "#d1fae5", "station": "📍 Desk 1"},
-    "research-analyst": {"name": "Research Analyst", "role": "Researcher", "color": "#7c3aed", "hair": "#d97706", "shirt": "#ede9fe", "station": "📚 Knowledge Archive"},
-    "devops-qa": {"name": "DevOps & QA", "role": "DevOps & QA", "color": "#d97706", "hair": "#475569", "shirt": "#fef3c7", "station": "🖥️ CI/CD Server Bay"},
-    "git-postmaster": {"name": "Git Postmaster", "role": "Git Postmaster", "color": "#0891b2", "hair": "#1e293b", "shirt": "#cffafe", "station": "📮 Git Post Office"},
-    "code-reviewer": {"name": "Code Reviewer", "role": "Senior Code Reviewer", "color": "#6366f1", "hair": "#1e293b", "shirt": "#e0e7ff", "station": "🔍 Review Desk"},
-    "security-auditor": {"name": "Security Auditor", "role": "Security Engineer", "color": "#ef4444", "hair": "#0f172a", "shirt": "#fee2e2", "station": "🛡️ Security Vault"},
-    "test-engineer": {"name": "Test Engineer", "role": "QA & Test Engineer", "color": "#f59e0b", "hair": "#475569", "shirt": "#fef3c7", "station": "🖥️ CI/CD Server Bay"},
-    "web-performance-auditor": {"name": "Web Perf Auditor", "role": "Performance Engineer", "color": "#14b8a6", "hair": "#334155", "shirt": "#ccfbf1", "station": "⚡ Performance Lab"},
-    "ai-architect": {"name": "AI Architect", "role": "AI Systems Architect", "color": "#8b5cf6", "hair": "#1e1b4b", "shirt": "#ede9fe", "station": "🧠 AI Architecture Pod"},
-    "deployment-expert": {"name": "Deployment Expert", "role": "CI/CD & Release Engineer", "color": "#06b6d4", "hair": "#164e63", "shirt": "#cffafe", "station": "📮 Git Post Office"},
-    "performance-optimizer": {"name": "Perf Optimizer", "role": "Core Web Vitals Specialist", "color": "#10b981", "hair": "#064e3b", "shirt": "#d1fae5", "station": "⚡ Performance Lab"},
-    "browser": {"name": "Browser Agent", "role": "Web Automation Specialist", "color": "#3b82f6", "hair": "#1e3a8a", "shirt": "#dbeafe", "station": "🌐 Web Terminal"},
-    "image-generator": {"name": "Creative Designer", "role": "Visual & Asset Designer", "color": "#ec4899", "hair": "#831843", "shirt": "#fce7f3", "station": "🎨 Creative Studio"}
+    "lead-architect": {"name": "Lead Architect", "role": "Planner & Coordinator", "color": "#4f46e5", "hair": "#b45309", "shirt": "#e0e7ff", "station": "Strategy Board"},
+    "core-developer": {"name": "Core Developer", "role": "Full-Stack Engineer", "color": "#059669", "hair": "#334155", "shirt": "#d1fae5", "station": "Desk 1"},
+    "research-analyst": {"name": "Research Analyst", "role": "Researcher", "color": "#7c3aed", "hair": "#d97706", "shirt": "#ede9fe", "station": "Knowledge Archive"},
+    "devops-qa": {"name": "DevOps & QA", "role": "DevOps & QA", "color": "#d97706", "hair": "#475569", "shirt": "#fef3c7", "station": "CI/CD Server Bay"},
+    "git-postmaster": {"name": "Git Postmaster", "role": "Git Postmaster", "color": "#0891b2", "hair": "#1e293b", "shirt": "#cffafe", "station": "Git Remote Dispatch"},
+    "code-reviewer": {"name": "Code Reviewer", "role": "Senior Code Reviewer", "color": "#6366f1", "hair": "#1e293b", "shirt": "#e0e7ff", "station": "Review Station"},
+    "security-auditor": {"name": "Security Auditor", "role": "Security Engineer", "color": "#ef4444", "hair": "#0f172a", "shirt": "#fee2e2", "station": "Security Operations"},
+    "test-engineer": {"name": "Test Engineer", "role": "QA & Test Engineer", "color": "#f59e0b", "hair": "#475569", "shirt": "#fef3c7", "station": "CI/CD Server Bay"},
+    "web-performance-auditor": {"name": "Web Perf Auditor", "role": "Performance Engineer", "color": "#14b8a6", "hair": "#334155", "shirt": "#ccfbf1", "station": "Performance Lab"},
+    "ai-architect": {"name": "AI Architect", "role": "AI Systems Architect", "color": "#8b5cf6", "hair": "#1e1b4b", "shirt": "#ede9fe", "station": "AI Architecture Pod"},
+    "deployment-expert": {"name": "Deployment Expert", "role": "CI/CD & Release Engineer", "color": "#06b6d4", "hair": "#164e63", "shirt": "#cffafe", "station": "Git Remote Dispatch"},
+    "performance-optimizer": {"name": "Perf Optimizer", "role": "Core Web Vitals Specialist", "color": "#10b981", "hair": "#064e3b", "shirt": "#d1fae5", "station": "Performance Lab"},
+    "browser": {"name": "Browser Agent", "role": "Web Automation Specialist", "color": "#3b82f6", "hair": "#1e3a8a", "shirt": "#dbeafe", "station": "Web Terminal"},
+    "image-generator": {"name": "Creative Designer", "role": "Visual & Asset Designer", "color": "#ec4899", "hair": "#831843", "shirt": "#fce7f3", "station": "Design Studio"}
 }
 
 def get_available_subagents(config_dir: Path) -> list:
@@ -80,7 +80,7 @@ def get_available_subagents(config_dir: Path) -> list:
                     "color": colors[c_idx],
                     "hair": "#334155",
                     "shirt": "#f1f5f9",
-                    "station": "📍 Studio Workstation"
+                    "station": "Studio Workstation"
                 }
 
             agents_map[agent_id] = {

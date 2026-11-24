@@ -46,7 +46,7 @@ class TestSubagentDiscovery(unittest.TestCase):
 
         self.assertIn("security-auditor", agents_dict)
         self.assertEqual(agents_dict["security-auditor"]["source"], "agent-skills")
-        self.assertEqual(agents_dict["security-auditor"]["station"], "🛡️ Security Vault")
+        self.assertEqual(agents_dict["security-auditor"]["station"], "Security Operations")
 
     def test_fallback_palette_for_unknown_custom_agent(self):
         # User defined custom agent: agents/custom-bot.md
@@ -64,7 +64,7 @@ class TestSubagentDiscovery(unittest.TestCase):
         self.assertIn("custom-bot", agents_dict)
         self.assertEqual(agents_dict["custom-bot"]["source"], "user")
         self.assertTrue(agents_dict["custom-bot"]["color"].startswith("#"))
-        self.assertEqual(agents_dict["custom-bot"]["station"], "📍 Studio Workstation")
+        self.assertEqual(agents_dict["custom-bot"]["station"], "Studio Workstation")
 
 if __name__ == "__main__":
     unittest.main()

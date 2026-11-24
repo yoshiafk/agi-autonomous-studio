@@ -269,7 +269,7 @@ class OfficeSimulator {
     this.agents.forEach((ag, idx) => {
       ag.state = "coffee";
       ag.currentTask = "Resting";
-      ag.speech = "Milestones completed! Team coffee break ☕";
+      ag.speech = "Milestones completed! Team in standby.";
       const spot = loungeSpots[idx % loungeSpots.length];
       ag.targetX = spot.x;
       ag.targetY = spot.y;
@@ -279,29 +279,29 @@ class OfficeSimulator {
 
   getStationLabel(ag) {
     if (ag.state === "coffee" || (Math.hypot(ag.x - 130, ag.y - 340) < 110)) {
-      return "☕ Espresso Lounge";
+      return "Breakout Atrium";
     }
     if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 342) < 45) {
-      return "📮 Git Post Office";
+      return "Git Remote Dispatch";
     }
     if ((ag.key === "devops" || ag.key === "tester") && Math.hypot(ag.x - 980, ag.y - 165) < 45) {
-      return "🖥️ CI/CD Server Bay";
+      return "CI/CD Server Bay";
     }
     if ((ag.key === "security" || (ag.role && ag.role.toLowerCase().includes("security"))) && Math.hypot(ag.x - this.zones.securityVault.x, ag.y - (this.zones.securityVault.y + 35)) < 65) {
-      return "🛡️ Security Vault";
+      return "Security Operations";
     }
     if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 30), ag.y - (this.zones.glassBoard.y + 35)) < 60) {
-      return "📋 Strategy Easel";
+      return "Strategy Board";
     }
     if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 60) {
-      return "📚 Knowledge Archive";
+      return "Knowledge Archive";
     }
     if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < this.zones.desks.length) {
       const row = ag.deskIndex < 3 ? "Front" : "Back";
       const col = (ag.deskIndex % 3) + 1;
-      return `📍 Desk ${ag.deskIndex + 1} (${row} Pod ${col})`;
+      return `Desk ${ag.deskIndex + 1} (${row} Pod ${col})`;
     }
-    return "📍 Studio Floor";
+    return "Studio Floor";
   }
 
   getOrCreateSpecialist(roleKey, nameOverride) {
@@ -380,7 +380,7 @@ class OfficeSimulator {
         color: p.color || "#6366f1",
         hair: p.hair || "#334155",
         shirt: p.shirt || "#f1f5f9",
-        station: p.station || "📍 Studio Workstation"
+        station: p.station || "Studio Workstation"
       };
       if (key !== p.id) {
         this.specialistTemplates[key] = this.specialistTemplates[p.id];
@@ -433,7 +433,7 @@ class OfficeSimulator {
     }
 
     if (this.spawnParticle) {
-      this.spawnParticle(ag.targetX, ag.targetY - 20, 'badge', '⚡', ag.color || '#3b82f6');
+      this.spawnParticle(ag.targetX, ag.targetY - 20, 'badge', '', ag.color || '#3b82f6');
     }
 
     this.selectAgent(ag.id);
@@ -470,7 +470,7 @@ class OfficeSimulator {
       if (ag.isPaused) {
         statusClass = "paused";
         statusLabel = "PAUSED";
-      } else if (ag.state === "coffee" || (stationLabel.includes("Lounge") && (ag.currentTask === "Resting" || (ag.speech && ag.speech.includes("coffee"))))) {
+      } else if (ag.state === "coffee" || (stationLabel.includes("Atrium") && (ag.currentTask === "Resting" || (ag.speech && ag.speech.includes("standby"))))) {
         statusClass = "resting";
         statusLabel = "RESTING";
       } else if (ag.currentTask === "Ready" && ag.state !== "working" && ag.state !== "shipping") {
@@ -494,10 +494,10 @@ class OfficeSimulator {
             <!-- Context Window Utilization HUD -->
             <div class="space-y-1">
               <div class="flex items-center justify-between text-[10.5px]">
-                <span class="font-bold flex items-center gap-1" style="color: var(--text-primary);">🧠 Context Window Health</span>
+                <span class="font-semibold flex items-center gap-1.5" style="color: var(--text-primary);">Context Window Capacity</span>
                 <span class="font-mono font-bold" style="color: ${contextColor}">${tokenPct}% (${tokenCount}k / 200k)</span>
               </div>
-              <div class="w-full h-2 rounded-full overflow-hidden" style="background: var(--border-card);">
+              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background: var(--border-card);">
                 <div class="h-full transition-all duration-300" style="width: ${tokenPct}%; background-color: ${contextColor}"></div>
               </div>
             </div>
@@ -510,16 +510,16 @@ class OfficeSimulator {
               </div>
               <div class="truncate">
                 <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Action Target</span>
-                <span class="font-semibold truncate block font-mono text-blue-600 dark:text-blue-400">${ag.currentTask || 'Idle in Studio'}</span>
+                <span class="font-semibold truncate block font-mono text-indigo-600 dark:text-indigo-400">${ag.currentTask || 'Idle in Studio'}</span>
               </div>
             </div>
 
             <!-- Inline Human-in-the-Loop Steering Controls -->
             <div class="flex items-center gap-1.5 pt-1.5" style="border-top: 1px solid var(--border-card);">
-              <input type="text" placeholder="Nudge agent..." class="roster-nudge-input flex-1 text-xs px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-blue-500" style="background: var(--surface-card); border-color: var(--border-card); color: var(--text-primary);">
-              <button class="roster-nudge-btn px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10.5px] transition">Nudge</button>
-              <button class="roster-pause-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Toggle Pause">${ag.isPaused ? '▶ Resume' : '⏸ Pause'}</button>
-              <button class="roster-lounge-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Send to Lounge">☕ Lounge</button>
+              <input type="text" placeholder="Nudge agent..." class="roster-nudge-input flex-1 text-xs px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-indigo-500" style="background: var(--surface-card); border-color: var(--border-card); color: var(--text-primary);">
+              <button class="roster-nudge-btn px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10.5px] transition">Nudge</button>
+              <button class="roster-pause-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Toggle Pause">${ag.isPaused ? 'Resume' : 'Pause'}</button>
+              <button class="roster-lounge-btn px-2 py-1 rounded-md border text-[10.5px] font-semibold transition" style="border-color: var(--border-card); color: var(--text-primary);" title="Send to Breakout">Breakout</button>
             </div>
           </div>
         `;
@@ -530,7 +530,7 @@ class OfficeSimulator {
       card.innerHTML = `
         <div class="roster-card-header">
           <div class="flex items-center gap-2.5 truncate">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-sm" style="background-color: ${ag.color}">
+            <div class="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-sm" style="background-color: ${ag.color}">
               ${ag.name.slice(0, 2).toUpperCase()}
             </div>
             <div class="truncate">
@@ -540,7 +540,7 @@ class OfficeSimulator {
           </div>
           <div class="roster-card-meta">
             <span class="roster-station-pill">${shortStation}</span>
-            <span class="roster-context-pill" style="color: ${contextColor}; border-color: ${contextColor}40">🧠 ${tokenPct}%</span>
+            <span class="roster-context-pill font-mono" style="color: ${contextColor}; border-color: ${contextColor}40">${tokenPct}%</span>
             <span class="roster-status-badge ${statusClass}">
               ${statusLabel}
             </span>
@@ -597,7 +597,7 @@ class OfficeSimulator {
             ag.targetX = 145;
             ag.targetY = 345;
             ag.state = "coffee";
-            ag.speech = "Taking an espresso break! ☕";
+            ag.speech = "Taking a breakout rest.";
             this.selectAgent(ag.id);
             if (window.chiptuneAudio) window.chiptuneAudio.playCoffeeSteam();
           };
@@ -658,10 +658,10 @@ class OfficeSimulator {
     } else if (toolName === "run_command") {
       const cmd = (args.CommandLine || "").toLowerCase();
       
-      // Git command detection -> Route to Git Post Office & Remote Dispatch
+      // Git command detection -> Route to Git Remote Dispatch
       if (cmd.includes("git") || cmd.includes("commit") || cmd.includes("push") || cmd.includes("release") || cmd.includes("remote")) {
         const dispatcher = this.getOrCreateSpecialist("dispatcher", "Git Postmaster");
-        dispatcher.speech = "Stamping & pushing commit to origin/main 📮";
+        dispatcher.speech = "Packing & pushing commit to origin/main.";
         dispatcher.currentTask = "Git Remote Push";
         dispatcher.state = "shipping";
         dispatcher.isPaused = false;
@@ -876,7 +876,7 @@ class OfficeSimulator {
 
     this.ctx.font = 'bold 9px sans-serif';
     this.ctx.fillStyle = allDone ? '#15803d' : (this.lightingMode === 'night' ? '#93c5fd' : '#1e3a8a');
-    this.ctx.fillText(allDone ? "ALL STEPS COMPLETED ✓" : "STRATEGY ROADMAP", x - bw / 2 + 16, y - bh / 2 + 17);
+    this.ctx.fillText(allDone ? "ALL STEPS COMPLETED" : "STRATEGY ROADMAP", x - bw / 2 + 16, y - bh / 2 + 17);
 
     const stepsToShow = this.missionSteps.slice(0, 5);
     if (stepsToShow.length > 0) {
@@ -888,13 +888,13 @@ class OfficeSimulator {
         // Dynamic pulsing indicator for in-progress step
         const pulse = isInProgress ? (Math.sin(this.tickCount * 0.18) * 1.5) : 0;
         if (isInProgress) {
-          this.ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+          this.ctx.fillStyle = 'rgba(99, 102, 241, 0.25)';
           this.ctx.beginPath();
           this.ctx.arc(x - bw / 2 + 14, sy - 3, 6 + pulse, 0, Math.PI * 2);
           this.ctx.fill();
         }
 
-        this.ctx.fillStyle = isDone ? '#16a34a' : (isInProgress ? '#2563eb' : '#94a3b8');
+        this.ctx.fillStyle = isDone ? '#16a34a' : (isInProgress ? '#4f46e5' : '#94a3b8');
         this.ctx.beginPath();
         this.ctx.arc(x - bw / 2 + 14, sy - 3, 3 + (isInProgress ? pulse * 0.5 : 0), 0, Math.PI * 2);
         this.ctx.fill();
@@ -913,7 +913,7 @@ class OfficeSimulator {
 
     // Active Idea Spark Particle emission from Glass Board
     if ((this.tickCount % 80 === 0) && this.spawnParticle) {
-      this.spawnParticle(x - bw / 2 + 18 + Math.random() * (bw - 36), y - bh / 2 + 28 + Math.random() * 45, 'spark', '✨', '#facc15');
+      this.spawnParticle(x - bw / 2 + 18 + Math.random() * (bw - 36), y - bh / 2 + 28 + Math.random() * 45, 'spark', '', '#facc15');
     }
   }
 
@@ -1001,7 +1001,7 @@ class OfficeSimulator {
 
     // Particle pulse
     if (this.tickCount % 90 === 0 && this.spawnParticle) {
-      this.spawnParticle(x + (Math.random() - 0.5) * 30, y - 5, 'shield', '🛡️', '#ef4444');
+      this.spawnParticle(x + (Math.random() - 0.5) * 30, y - 5, 'shield', '', '#ef4444');
     }
   }
 
@@ -1120,7 +1120,7 @@ class OfficeSimulator {
 
     // Emit green checkmark particle when test suite completes
     if ((this.tickCount % 100 === 0) && this.spawnParticle) {
-      this.spawnParticle(cx + 6, cy - 22, 'check', '✔', '#22c55e');
+      this.spawnParticle(cx + 6, cy - 22, 'check', '', '#22c55e');
     }
 
     // Keyboard Tray
@@ -1134,7 +1134,7 @@ class OfficeSimulator {
     // Station Signage Badge
     this.ctx.font = 'bold 8.5px sans-serif';
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#38bdf8' : '#0284c7';
-    this.ctx.fillText("⚡ CI/CD SERVER BAY & OPS", x - rw / 2 - 12, y - rh / 2 - 18);
+    this.ctx.fillText("CI/CD SERVER BAY & OPS", x - rw / 2 - 12, y - rh / 2 - 18);
   }
 
   drawMarbleEspressoBar(x, y, palette) {
@@ -1271,7 +1271,7 @@ class OfficeSimulator {
     // Station Badge
     this.ctx.font = 'bold 8.5px sans-serif';
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#fcd34d' : '#92400e';
-    this.ctx.fillText("☕ ESPRESSO LOUNGE", x - 42, y + 36);
+    this.ctx.fillText("BREAKOUT ATRIUM", x - 38, y + 36);
   }
 
   drawGitPostOffice(x, y, palette) {
@@ -1411,7 +1411,7 @@ class OfficeSimulator {
     // Station Badge
     this.ctx.font = 'bold 8.5px sans-serif';
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#67e8f9' : '#0891b2';
-    this.ctx.fillText("📦 GIT POST OFFICE & DISPATCH", x - pw / 2 + 2, y + 36);
+    this.ctx.fillText("GIT REMOTE DISPATCH", x - pw / 2 + 8, y + 36);
   }
 
   // --- Ergonomic Chair & Desk Layering ---
@@ -2017,7 +2017,7 @@ class OfficeSimulator {
 
       this.ctx.font = 'bold 8.5px sans-serif';
       this.ctx.fillStyle = '#ffffff';
-      this.ctx.fillText("⚠️ DRIFT DETECTED", dx + 8, dy + 12);
+      this.ctx.fillText("DRIFT DETECTED", dx + 8, dy + 12);
     }
   }
 
@@ -2083,9 +2083,10 @@ class OfficeSimulator {
         this.ctx.fillStyle = p.color || '#38bdf8';
         this.ctx.fillText(p.text, p.x, p.y);
       } else if (p.type === 'spark') {
-        this.ctx.font = 'bold 9px sans-serif';
         this.ctx.fillStyle = p.color || '#facc15';
-        this.ctx.fillText(p.text || '✨', p.x, p.y);
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size || 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
       } else if (p.type === 'steam') {
         p.size += 0.08;
         this.ctx.fillStyle = p.color || 'rgba(210, 210, 210, 0.45)';
@@ -2093,9 +2094,25 @@ class OfficeSimulator {
         this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         this.ctx.fill();
       } else if (p.type === 'check') {
-        this.ctx.font = 'bold 11px sans-serif';
-        this.ctx.fillStyle = '#22c55e';
-        this.ctx.fillText(p.text || '✔', p.x, p.y);
+        this.ctx.strokeStyle = '#22c55e';
+        this.ctx.lineWidth = 1.6;
+        this.ctx.beginPath();
+        this.ctx.moveTo(p.x - 3, p.y);
+        this.ctx.lineTo(p.x - 0.5, p.y + 3);
+        this.ctx.lineTo(p.x + 4.5, p.y - 3);
+        this.ctx.stroke();
+      } else if (p.type === 'shield') {
+        this.ctx.strokeStyle = '#ef4444';
+        this.ctx.lineWidth = 1.3;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        this.ctx.stroke();
+      } else if (p.type === 'badge') {
+        this.ctx.strokeStyle = p.color || '#6366f1';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        this.ctx.stroke();
       } else if (p.type === 'stamp') {
         this.ctx.font = 'bold 8px monospace';
         this.ctx.fillStyle = p.color || '#06b6d4';
@@ -2156,7 +2173,7 @@ class OfficeSimulator {
             ag.currentTask = "Resting";
           } else if (atPostOffice) {
             ag.state = "shipping";
-            ag.speech = "Commit pushed to remote repo! 🚀";
+            ag.speech = "Commit pushed to remote origin/main.";
           } else if (atServerLab) {
             ag.state = "working";
             ag.speech = "Running container test suite...";

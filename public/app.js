@@ -117,13 +117,17 @@ function initUIEvents() {
   if (audioBtn) {
     const updateAudioUI = () => {
       const isEnabled = window.chiptuneAudio && window.chiptuneAudio.enabled;
-      const icon = document.getElementById('audio-icon');
+      const iconSlot = document.getElementById('audio-icon-slot');
       const label = document.getElementById('audio-label');
-      if (icon) icon.textContent = isEnabled ? '🔊' : '🔇';
-      if (label) label.textContent = isEnabled ? '8-bit Audio: ON' : 'Muted';
-      audioBtn.classList.toggle('border-blue-300', isEnabled);
-      audioBtn.classList.toggle('bg-blue-50', isEnabled);
-      audioBtn.classList.toggle('text-blue-700', isEnabled);
+      if (iconSlot) {
+        iconSlot.innerHTML = typeof renderIcon === 'function' 
+          ? (isEnabled ? renderIcon('volume', 'w-3.5 h-3.5') : renderIcon('volumeX', 'w-3.5 h-3.5'))
+          : '';
+      }
+      if (label) label.textContent = isEnabled ? 'Audio: ON' : 'Muted';
+      audioBtn.classList.toggle('border-indigo-300', isEnabled);
+      audioBtn.classList.toggle('bg-indigo-50/50', isEnabled);
+      audioBtn.classList.toggle('text-indigo-600', isEnabled);
     };
     audioBtn.addEventListener('click', () => {
       if (window.chiptuneAudio) {
@@ -139,12 +143,12 @@ function updateAutoFollowButton() {
   const btn = document.getElementById('toggle-autofollow');
   if (!btn) return;
   if (autoFollowEnabled) {
-    btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm";
-    btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span><span>Auto-Follow: ON</span>`;
+    btn.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-indigo-200/50 bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100/50 transition shadow-sm";
+    btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span><span>Auto-Follow: ON</span>`;
     btn.title = "Auto-Follow is ON: automatically following active workspace sessions";
   } else {
-    btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:text-slate-800 transition shadow-sm";
-    btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>Auto-Follow: OFF</span>`;
+    btn.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition shadow-sm";
+    btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Auto-Follow: OFF</span>`;
     btn.title = "Click to turn Auto-Follow ON";
   }
 }
@@ -160,9 +164,9 @@ async function loadProjects() {
     projects.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.id;
-      const statusIcon = p.active ? '🟢' : '⚪';
+      const statusPrefix = p.active ? '● ' : '○ ';
       const activeText = p.active ? ' (Active)' : '';
-      opt.textContent = `${statusIcon} ${p.display_name}${activeText}`;
+      opt.textContent = `${statusPrefix}${p.display_name}${activeText}`;
       select.appendChild(opt);
     });
 
@@ -241,18 +245,18 @@ async function checkActiveProject(force = false) {
 function onConversationIdle() {
   const focusBanner = document.getElementById('focus-banner-text');
   if (focusBanner) {
-    focusBanner.textContent = "🎉 All Milestones Completed — Studio is Idle & Ready";
+    focusBanner.textContent = "All Milestones Completed — Studio is Idle & Ready";
   }
   const badgeEl = document.getElementById('active-project-badge');
   if (badgeEl) {
-    badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200";
+    badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
     badgeEl.textContent = "IDLE / READY";
   }
   if (officeSim) {
     officeSim.setAllIdle();
   }
 
-  renderGenericCard("☕ Turn Complete", "All steps finished. Developers resting at the Espresso Bar", "action-card-cmd");
+  renderGenericCard("Turn Complete", "All steps finished. Specialists resting at Breakout Atrium", "action-card-cmd", "checkCircle");
 }
 
 async function switchProject(projectId, projectsCache = null) {
@@ -347,15 +351,15 @@ function renderActiveSessionsBar(sessions) {
   if (sessions.length === 0) {
     container.innerHTML = `
       <span class="text-xs text-slate-400 italic py-1 flex items-center gap-1.5">
-        <span>⚪</span> No active background sessions running.
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span> No active background sessions running.
       </span>
     `;
     return;
   }
 
   const label = document.createElement('span');
-  label.className = "text-xs font-semibold text-slate-400 shrink-0 mr-1 select-none flex items-center gap-1";
-  label.innerHTML = `<span>⚡</span> Active:`;
+  label.className = "text-xs font-semibold text-slate-400 shrink-0 mr-1 select-none flex items-center gap-1.5";
+  label.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span> <span>Active:</span>`;
   container.appendChild(label);
 
   sessions.forEach(s => {
@@ -540,7 +544,7 @@ function connectToEventStream(conversationId, isActive = true) {
   eventSource.addEventListener('activate', (e) => {
     try {
       const act = JSON.parse(e.data);
-      renderGenericCard("🚀 Session Started", act.workspace || act.conversation_id, "action-card-info");
+      renderGenericCard("Session Initialized", act.workspace || act.conversation_id, "action-card-info", "play");
       checkActiveSessions();
       if (autoFollowEnabled && act.conversation_id !== currentConversationId) {
         checkActiveProject(true);
@@ -568,9 +572,9 @@ function handleStepEvent(step, isHydrate = false) {
     if (matchCmd) {
       const cmdName = matchCmd[1].toLowerCase();
       officeSim.handleCommandTrigger(`/${cmdName}`, raw);
-      renderGenericCard(`⚡ Command Triggered: /${cmdName}`, raw.slice(0, 100), "action-card-info");
+      renderGenericCard(`Command: /${cmdName}`, raw.slice(0, 100), "action-card-info", "zap");
     } else {
-      renderGenericCard("👤 User Prompt", raw.slice(0, 100) + '...', "action-card-info");
+      renderGenericCard("User Prompt", raw.slice(0, 100) + '...', "action-card-info", "user");
     }
     return;
   }
@@ -587,7 +591,7 @@ function handleStepEvent(step, isHydrate = false) {
         if (officeSim && typeof officeSim.handleSubagentInvocation === 'function') {
           officeSim.handleSubagentInvocation(args.TypeName, args.Role, args.Prompt);
         }
-        renderGenericCard(`🤖 Subagent: ${subagent}`, (args.Prompt || "").slice(0, 100), "action-card-code");
+        renderGenericCard(`Subagent: ${subagent}`, (args.Prompt || "").slice(0, 100), "action-card-code", "cpu");
         return;
       }
 
@@ -598,7 +602,7 @@ function handleStepEvent(step, isHydrate = false) {
         if (args.action === "add" && officeSim && typeof officeSim.handleSubagentInvocation === 'function') {
           officeSim.handleSubagentInvocation(swarmName, swarmRole, swarmBrief);
         }
-        renderGenericCard(`🐝 Swarm: ${swarmName}`, (swarmBrief || "").slice(0, 100), "action-card-code");
+        renderGenericCard(`Swarm: ${swarmName}`, (swarmBrief || "").slice(0, 100), "action-card-code", "network");
         return;
       }
 
@@ -662,7 +666,7 @@ function handleStepEvent(step, isHydrate = false) {
       }
 
       // Fallback
-      renderGenericCard(`🛠️ ${toolName}`, JSON.stringify(args).slice(0, 100), "action-card-code");
+      renderGenericCard(`Tool: ${toolName}`, JSON.stringify(args).slice(0, 100), "action-card-code", "terminal");
       officeSim.handleToolAction(toolName, args, subagent);
     });
     return;
@@ -704,7 +708,7 @@ function renderCommandCard(command, summary) {
   const cmdLower = command.toLowerCase();
   const isGit = cmdLower.includes("git") || cmdLower.includes("commit") || cmdLower.includes("push") || cmdLower.includes("remote");
   const badgeClass = isGit ? "feed-badge badge-git" : "feed-badge";
-  const badgeText = isGit ? (cmdLower.includes("push") ? "📮 GIT PUSH" : "📦 GIT COMMIT") : "CLI";
+  const badgeText = isGit ? (cmdLower.includes("push") ? "GIT PUSH" : "GIT COMMIT") : "CLI";
 
   const card = document.createElement('div');
   card.className = "feed-card flex flex-col gap-2";
@@ -736,8 +740,8 @@ function renderFileCard(filePath, action) {
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
         <span class="feed-badge">${action.toUpperCase()}</span>
-        <span class="font-bold text-slate-800 text-xs truncate max-w-[200px]">${fileName}</span>
-        <span class="px-1 py-0.2 rounded text-[9px] font-mono bg-slate-100 text-slate-500">${ext}</span>
+        <span class="font-bold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[200px]">${fileName}</span>
+        <span class="px-1 py-0.2 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500">${ext}</span>
       </div>
       <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
     </div>
@@ -757,12 +761,12 @@ function renderResearchCard(toolName, query) {
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="feed-badge">RESEARCH</span>
-        <span class="font-semibold text-slate-800 text-xs truncate max-w-[220px]">${toolName}</span>
+        <span class="feed-badge">DOCS</span>
+        <span class="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[220px]">${toolName}</span>
       </div>
       <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div class="text-xs text-slate-600 italic truncate">
+    <div class="text-xs text-slate-600 dark:text-slate-400 italic truncate">
       "${query}"
     </div>
   `;
@@ -773,11 +777,12 @@ function renderThinkingCard(thoughtSnippet) {
   const feed = getFeedContainer();
   if (!feed) return;
 
+  const iconSvg = typeof renderIcon === 'function' ? renderIcon('activity', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-start gap-2 bg-slate-50/50";
+  card.className = "feed-card flex items-start gap-2 bg-slate-50/50 dark:bg-slate-900/50";
   card.innerHTML = `
-    <span class="text-xs shrink-0 mt-0.5">🧠</span>
-    <div class="truncate text-xs text-slate-600 italic">
+    <span class="shrink-0 mt-0.5">${iconSvg}</span>
+    <div class="truncate text-xs text-slate-600 dark:text-slate-400 italic">
       ${thoughtSnippet}...
     </div>
   `;
@@ -788,27 +793,32 @@ function renderFocusCard(focusText) {
   const feed = getFeedContainer();
   if (!feed) return;
 
+  const iconSvg = typeof renderIcon === 'function' ? renderIcon('target', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-center justify-between gap-2 border border-blue-200 bg-blue-50/30";
+  card.className = "feed-card flex items-center justify-between gap-2 border border-indigo-200/50 bg-indigo-50/20 dark:border-indigo-800/40 dark:bg-indigo-950/20";
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate">
-      <span class="text-sm">🎯</span>
-      <span class="text-xs font-semibold text-blue-900 truncate">${focusText}</span>
+      <span class="shrink-0">${iconSvg}</span>
+      <span class="text-xs font-semibold text-indigo-900 dark:text-indigo-300 truncate">${focusText}</span>
     </div>
     <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
   `;
   appendCard(feed, card);
 }
 
-function renderGenericCard(title, details, borderClass = "") {
+function renderGenericCard(title, details, borderClass = "", iconName = "activity") {
   const feed = getFeedContainer();
   if (!feed) return;
 
+  const iconSvg = typeof renderIcon === 'function' ? renderIcon(iconName, "w-3.5 h-3.5 text-indigo-500 shrink-0") : "";
   const card = document.createElement('div');
-  card.className = "feed-card flex items-center justify-between gap-2";
+  card.className = `feed-card flex items-center justify-between gap-2.5 ${borderClass}`;
   card.innerHTML = `
-    <div class="truncate text-xs text-slate-700">
-      <strong class="font-semibold text-slate-900">${title}:</strong> ${details}
+    <div class="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300">
+      ${iconSvg}
+      <div class="truncate">
+        <strong class="font-semibold text-slate-900 dark:text-slate-100">${title}:</strong> ${details}
+      </div>
     </div>
     <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
   `;
@@ -857,7 +867,7 @@ function renderRoadmapPipeline(steps) {
   stepsList.innerHTML = "";
 
   let doneCount = 0;
-  stepsArray.forEach((st) => {
+  stepsArray.forEach((st, idx) => {
     const isDone = (st.status === "done");
     const isInProgress = (st.status === "in_progress");
     if (isDone) doneCount++;
@@ -868,10 +878,10 @@ function renderRoadmapPipeline(steps) {
     }`;
 
     const icon = isDone
-      ? '<span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>'
+      ? `<span class="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">${typeof renderIcon === 'function' ? renderIcon('checkCircle', 'w-3 h-3') : 'ok'}</span>`
       : (isInProgress
-        ? '<span class="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold shrink-0 animate-pulse">⚡</span>'
-        : '<span class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 shrink-0">•</span>');
+        ? `<span class="w-4 h-4 rounded-full bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0 animate-pulse">${typeof renderIcon === 'function' ? renderIcon('play', 'w-2.5 h-2.5') : '>'}</span>`
+        : `<span class="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-400 shrink-0 font-mono">${idx + 1}</span>`);
 
     item.innerHTML = `
       ${icon}
@@ -883,7 +893,7 @@ function renderRoadmapPipeline(steps) {
   const isAllDone = (doneCount === stepsArray.length && stepsArray.length > 0);
   if (summaryEl) {
     if (isAllDone) {
-      summaryEl.innerHTML = `<span class="text-emerald-700 font-bold">🎉 All ${stepsArray.length} Completed (100%)</span>`;
+      summaryEl.innerHTML = `<span class="text-emerald-500 font-bold font-mono">All ${stepsArray.length} Completed (100%)</span>`;
       onConversationIdle();
     } else {
       summaryEl.textContent = `${doneCount} / ${stepsArray.length} Completed`;
@@ -912,7 +922,7 @@ function runDemoSimulation() {
 
   // 1. Lead Architect (Planning Easel)
   officeSim.handleCommandTrigger("/plan", "Architectural blueprint and roadmap planning");
-  renderGenericCard("📐 Planning", "Lead Architect designing system architecture at Strategy Easel");
+  renderGenericCard("Planning", "Lead Architect designing system architecture at Strategy Board", "action-card-info", "gitBranch");
 
   // 2. Security Auditor (Security Vault)
   setTimeout(() => {
@@ -921,7 +931,7 @@ function runDemoSimulation() {
     renderRoadmapPipeline(demoRoadmap);
 
     officeSim.handleSubagentInvocation("security-auditor", "Security Auditor", "Audit authentication tokens and session security");
-    renderGenericCard("🛡️ Security Audit", "Security Auditor verifying cryptographic tokens at Security Vault");
+    renderGenericCard("Security Audit", "Security Auditor verifying cryptographic tokens at Security Operations", "action-card-info", "shieldCheck");
   }, 2000);
 
   // 3. Core Developer (Desk 1)
@@ -941,7 +951,7 @@ function runDemoSimulation() {
     renderRoadmapPipeline(demoRoadmap);
 
     officeSim.handleSubagentInvocation("code-reviewer", "Code Reviewer", "Review session.ts against security requirements");
-    renderGenericCard("🔍 Code Review", "Senior Code Reviewer validating PR implementation");
+    renderGenericCard("Code Review", "Senior Code Reviewer validating PR implementation", "action-card-info", "search");
   }, 6000);
 
   // 5. Test Engineer & DevOps (CI/CD Bay)
@@ -961,7 +971,7 @@ function runDemoSimulation() {
     renderRoadmapPipeline(demoRoadmap);
 
     officeSim.handleToolAction("run_command", { CommandLine: "git commit -m 'feat: ship auth session pod' && git push origin main" });
-    renderCommandCard("git commit -m 'feat: ship auth session pod' && git push origin main", "Remote Push at Git Post Office");
+    renderCommandCard("git commit -m 'feat: ship auth session pod' && git push origin main", "Remote Push at Git Dispatch");
   }, 10000);
 
   // 7. Team Celebration & Espresso Lounge
@@ -970,6 +980,6 @@ function runDemoSimulation() {
     renderRoadmapPipeline(demoRoadmap);
 
     onConversationIdle();
-    renderGenericCard("🎉 Sprint Complete", "All milestones validated and shipped. All 6 specialists taking team coffee break ☕");
+    renderGenericCard("Sprint Complete", "All milestones validated and shipped. All 6 specialists in standby at Breakout Atrium", "action-card-cmd", "checkCircle");
   }, 12500);
 }
