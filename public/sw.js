@@ -1,17 +1,26 @@
 // Antigravity Autonomous Studio - Service Worker
-const CACHE_NAME = 'agi-studio-cache-v2';
+const CACHE_NAME = 'agi-studio-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/?auto=true',
   '/index.html',
   '/manifest.json',
+  '/favicon.ico',
+  '/apple-touch-icon.png',
   '/style.css',
   '/icons.js',
   '/pwa.js',
   '/app.js',
   '/office.js',
   '/audio.js',
-  '/assets/logo.svg'
+  '/assets/logo.svg',
+  '/assets/antigravity-icon.png',
+  '/assets/icon-16.png',
+  '/assets/icon-32.png',
+  '/assets/icon-192.png',
+  '/assets/icon-512.png',
+  '/assets/apple-touch-icon.png',
+  '/assets/favicon.ico'
 ];
 
 self.addEventListener('install', (e) => {
