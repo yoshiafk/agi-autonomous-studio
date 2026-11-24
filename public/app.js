@@ -20,6 +20,8 @@ let currentFeedFilter = 'all';
 let currentArtifactsCache = [];
 let currentRawArtifactContent = '';
 let currentModalCopyText = '';
+let lastAgentActionTime = Date.now();
+let isConversationBusy = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   officeSim = new OfficeSimulator('officeCanvas');
@@ -38,6 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
       checkActiveProject();
     }
   }, 2000);
+
+  // Inactivity watchdog: if agents were busy but no actions arrive for 8s, transition to idle rest
+  setInterval(() => {
+    if (isConversationBusy && (Date.now() - lastAgentActionTime > 8000)) {
+      isConversationBusy = false;
+      onConversationIdle();
+    }
+  }, 2500);
 });
 
 async function loadAvailableAgents() {
@@ -885,14 +895,14 @@ function handleInitialState(data) {
 
     if (data.recent_steps.length > 0 && officeSim) {
       const isRoadmapAllDone = cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done");
-      if (isRoadmapAllDone) {
-        officeSim.setAllIdle();
-      } else {
-        const lastStep = data.recent_steps[data.recent_steps.length - 1];
-        if (lastStep.tool_calls && lastStep.tool_calls.length > 0) {
-          const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
-          officeSim.handleToolAction(tc.name, tc.args || {});
-        }
+      const lastStep = data.recent_steps[data.recent_steps.length - 1];
+      const lastStepIsComplete = lastStep && lastStep.type === "PLANNER_RESPONSE" && lastStep.content && (!lastStep.tool_calls || lastStep.tool_calls.length === 0);
+
+      if (isRoadmapAllDone || lastStepIsComplete) {
+        onConversationIdle();
+      } else if (lastStep && lastStep.tool_calls && lastStep.tool_calls.length > 0) {
+        const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
+        officeSim.handleToolAction(tc.name, tc.args || {});
       }
     }
   }
@@ -1032,6 +1042,8 @@ function handleStepEvent(step, isHydrate = false) {
 
   // 2. Process Tool Calls
   if (step.tool_calls && step.tool_calls.length > 0) {
+    lastAgentActionTime = Date.now();
+    isConversationBusy = true;
     step.tool_calls.forEach(tc => {
       const toolName = tc.name || "tool";
       const args = tc.args || {};
@@ -1132,16 +1144,18 @@ function handleStepEvent(step, isHydrate = false) {
     const preview = step.thinking.slice(0, 140).replace(/[\n\r]+/g, ' ');
     renderThinkingCard(preview);
     officeSim.handleToolAction("thinking", { focus: preview });
-    return;
   }
 
-  // 4. Completed Step / Final Model Content
+  // 4. Completed Step / Final Model Content (Turn Finished)
   if (step.type === "PLANNER_RESPONSE") {
-    if (step.content && !step.tool_calls) {
+    const hasToolCalls = step.tool_calls && Array.isArray(step.tool_calls) && step.tool_calls.length > 0;
+    if (step.content && !hasToolCalls) {
+      isConversationBusy = false;
       onConversationIdle();
       const nameEl = document.getElementById('active-project-name');
       const curName = nameEl ? nameEl.textContent : currentProjectId;
       updateActiveHeader(curName, null, false);
+      return;
     }
   }
 }

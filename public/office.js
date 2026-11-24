@@ -397,7 +397,14 @@ class OfficeSimulator {
     this.updateRosterUI();
   }
 
+  isIdleTask(task) {
+    if (!task) return false;
+    const idleKeywords = ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee", "Standby", "Lounge", "Breakout", "Review", "Milestones Complete"];
+    return idleKeywords.some(k => task.includes(k));
+  }
+
   setAllIdle() {
+    this.isStudioIdle = true;
     // Multi-spot natural idle distribution across the entire studio
     const idleSpots = [
       { x: 140, y: 355, task: "Brewing Espresso", speech: "Milestones completed! Grabbing fresh espresso." },
@@ -407,17 +414,19 @@ class OfficeSimulator {
       { x: 75,  y: 355, task: "Reading in Armchair", speech: "Enjoying a quiet moment in the armchair." },
       { x: 185, y: 358, task: "Coffee Standby", speech: "Team standby at the lounge coffee table." },
       { x: 130, y: 175, task: "Milestone Review", speech: "All strategic roadmap goals delivered." },
-      { x: 990, y: 175, task: "Server Bay Standby", speech: "CI/CD server pipeline in idle standby." }
+      { x: 210, y: 360, task: "Lounge Standby", speech: "Relaxing at Breakout Lounge." }
     ];
 
     this.agents.forEach((ag, idx) => {
       const spot = idleSpots[idx % idleSpots.length];
       ag.state = "coffee";
+      ag.isRestingGoal = true;
       ag.currentTask = spot.task;
       ag.speech = spot.speech;
       ag.targetX = spot.x;
       ag.targetY = spot.y;
     });
+    this.updateCockpitUI();
     this.updateRosterUI();
   }
 
@@ -428,7 +437,7 @@ class OfficeSimulator {
     if (ag.currentTask && ag.currentTask.includes("Skyline")) {
       return "Skyline Horizon";
     }
-    if (ag.state === "coffee" || (Math.hypot(ag.x - 160, ag.y - 360) < 130)) {
+    if (ag.state === "coffee" || ag.isRestingGoal || this.isIdleTask(ag.currentTask) || (Math.hypot(ag.x - 160, ag.y - 360) < 140)) {
       return "Breakout Lounge & Cafe";
     }
     if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 345) < 55) {
@@ -623,9 +632,9 @@ class OfficeSimulator {
       let statusClass = "working";
       let statusLabel = "WORKING";
 
-      const isResting = ag.state === "coffee" || 
-        ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee"].some(t => ag.currentTask && ag.currentTask.includes(t)) ||
-        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("reference manual")));
+      const isResting = ag.state === "coffee" || ag.isRestingGoal ||
+        this.isIdleTask(ag.currentTask) ||
+        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("espresso") || ag.speech.toLowerCase().includes("milestones completed")));
 
       if (ag.state === "error") {
         statusClass = "error";
@@ -721,6 +730,17 @@ class OfficeSimulator {
 
     if (toolName === "update_steps") {
       const planner = this.getOrCreateSpecialist("planner", "Lead Architect");
+      const stepsArr = args.steps || [];
+      const allDone = Array.isArray(stepsArr) && stepsArr.length > 0 && stepsArr.every(s => s.status === "done");
+      if (allDone) {
+        planner.speech = "All strategic roadmap goals delivered.";
+        planner.currentTask = "Milestones Complete";
+        this.setMissionSteps(stepsArr);
+        this.setAllIdle();
+        return;
+      }
+      planner.isRestingGoal = false;
+      this.isStudioIdle = false;
       planner.speech = summary || "Refining mission roadmap...";
       planner.currentTask = summary || "Roadmap Update";
       planner.state = "working";
@@ -730,10 +750,25 @@ class OfficeSimulator {
       if (args.steps) this.setMissionSteps(args.steps);
       target = planner;
     } else if (toolName === "update_focus") {
+      const fText = (args.focus || "").toLowerCase();
+      const isCompletion = fText.includes("completed") || fText.includes("finished") || fText.includes("all done");
+      if (isCompletion) {
+        target.speech = args.focus ? `Focus: ${args.focus}` : "Sprint Complete";
+        target.currentTask = "Milestones Complete";
+        this.setAllIdle();
+        return;
+      }
+      target.isRestingGoal = false;
+      this.isStudioIdle = false;
       target.speech = args.focus ? `Focus: ${args.focus}` : "Executing strategic focus";
       target.currentTask = args.focus || "Executing Focus";
       target.state = "working";
       target.isPaused = false;
+    } else if (toolName === "thinking") {
+      if (this.isStudioIdle) return;
+      target.speech = args.focus || "Analyzing solution architecture...";
+      target.currentTask = "Architectural Reasoning";
+      return;
     } else if (toolName === "run_command") {
       const cmd = (args.CommandLine || "").trim();
       const cmdLower = cmd.toLowerCase();
@@ -812,7 +847,7 @@ class OfficeSimulator {
       return;
     }
 
-    if (target) {
+    if (target && !target.isRestingGoal) {
       if (target.state !== "shipping") {
         target.state = "working";
       }
@@ -2884,10 +2919,11 @@ class OfficeSimulator {
         ag.x = ag.targetX;
         ag.y = ag.targetY;
         if (ag.state === "walking" || ag.state === "shipping") {
-          const atLounge = Math.hypot(ag.x - this.zones.espressoBar.x, ag.y - this.zones.espressoBar.y) < 130;
+          const atLounge = Math.hypot(ag.x - this.zones.espressoBar.x, ag.y - this.zones.espressoBar.y) < 140;
           const atPostOffice = Math.hypot(ag.x - 980, ag.y - 345) < 40;
           const atServerLab = Math.hypot(ag.x - 980, ag.y - 165) < 40;
-          if (atLounge) {
+
+          if (ag.isRestingGoal || this.isIdleTask(ag.currentTask) || atLounge) {
             ag.state = "coffee";
             if (!ag.currentTask || ag.currentTask === "Executing Task") ag.currentTask = "Resting";
           } else if (atPostOffice) {
@@ -2897,9 +2933,9 @@ class OfficeSimulator {
             ag.state = "working";
             if (!ag.speech) ag.speech = "CI/CD Pipeline Active";
           } else if (Math.abs(ag.x - ag.homeX) < 8 && Math.abs(ag.y - ag.homeY) < 8) {
-            ag.state = (ag.currentTask === "Resting" ? "coffee" : "working");
+            ag.state = (ag.isRestingGoal || this.isIdleTask(ag.currentTask) ? "coffee" : "working");
           } else {
-            ag.state = (ag.currentTask === "Resting" ? "coffee" : "working");
+            ag.state = (ag.isRestingGoal || this.isIdleTask(ag.currentTask) ? "coffee" : "working");
           }
           this.updateRosterUI();
         }
