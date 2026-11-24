@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
-    { name = "Yosafat", email = "yosyfakry@gmail.com" }
+    { name = "yoshiafk" }
 ]
 keywords = ["antigravity", "agent", "visualizer", "telemetry", "chiptune", "virtual-office"]
 classifiers = [
