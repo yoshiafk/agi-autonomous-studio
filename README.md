@@ -6,7 +6,7 @@ An animated, retro 2D pixel-art office simulator that visualizes **Google Antigr
 
 ## 🌟 Key Features
 
-- **Multi-Project Auto-Discovery**: Automatically scans and monitors all projects in `~/.gemini/config/projects/` (`my-page-pimcore`, `semeja`, `case-management`, `serba-service-center`, etc.).
+- **Multi-Project Auto-Discovery**: Automatically scans and monitors all projects in `~/.gemini/config/projects/` (`web-frontend`, `api-service`, `mobile-app`, etc.).
 - **Automatic Triggering on Future Projects**: Configured with Antigravity Global Lifecycle Hooks (`SessionStart` in `~/.gemini/config/hooks.json`). Any project added in the future automatically awakens the visualizer with zero manual setup.
 - **Auto-Follow Mode**: Keep `http://localhost:7777` open in a browser tab or second monitor. Whenever you prompt Antigravity in any workspace, the office automatically switches view and animates that project.
 - **Live Event Streaming (SSE)**: Streams tool calls (`invoke_subagent`, `run_command`, `write_file`, `edit_file`, `search_web`), thinking states, and step completions directly from `transcript.jsonl`.
@@ -77,8 +77,8 @@ python3 server.py --open-browser
 - **Auto-Follow Active Agent**:
   `http://localhost:7777/?auto=true`
 - **Lock to a Specific Project**:
-  `http://localhost:7777/?project=my-page-pimcore`
-  `http://localhost:7777/?project=semeja`
+  `http://localhost:7777/?project=web-frontend`
+  `http://localhost:7777/?project=api-service`
 - **Lock to a Specific Conversation**:
   `http://localhost:7777/?conversation=<conversation_id>`
 

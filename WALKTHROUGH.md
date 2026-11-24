@@ -26,7 +26,7 @@ This walkthrough details the resolution of agent state telemetry issues in **Ant
 
 ### Issue C: Project Conversation Placement in Antigravity Sidebar
 - **Root Cause**: When this session was started, it was initialized outside any project workspace. Both `conversations/7f270c91.db` (`trajectory_metadata_blob`) and `conversation_summaries.db` held `project_id: outside-of-project`.
-- **Fix**: Executed a binary-safe protobuf migration across `trajectory_metadata_blob`, `gen_metadata`, and `conversation_summaries.db`, updating `project_id` to `7a47bca6-33ac-44cc-917b-cd4bc458329b` and workspace URI to `file:///z%3A/home/yoshiafk/personal-project/agi-autonomous-studio`.
+- **Fix**: Executed a binary-safe migration across `trajectory_metadata_blob`, `gen_metadata`, and `conversation_summaries.db`, updating `project_id` and workspace URI to the project repository.
 
 ---
 
@@ -62,7 +62,7 @@ stateDiagram-v2
 
 ## 3. Git History in Project Repository
 
-In `Z:\home\yoshiafk\personal-project\agi-autonomous-studio`:
+In the project repository:
 ```
 1e356a7 fix: resolve agent status accuracy, dynamic stations, and step completion decoupling
 e7e304c docs: add comprehensive V4 walkthrough documentation
