@@ -7,13 +7,12 @@ services:
     container_name: antigravity-studio
     restart: unless-stopped
     ports:
-      - "${PORT:-7777}:7777"
+      - "127.0.0.1:${PORT:-7777}:7777"
     environment:
-      - PORT=${PORT:-7777}
+      - PORT=7777
+      - HOST=0.0.0.0
       - ANTIGRAVITY_DATA_DIR=/data/antigravity
       - ANTIGRAVITY_CONFIG_DIR=/data/config
     volumes:
-      - ./server.py:/app/server.py:ro
-      - ./public:/app/public:ro
       - ${ANTIGRAVITY_DATA_DIR:-~/.gemini/antigravity}:/data/antigravity:ro
       - ${ANTIGRAVITY_CONFIG_DIR:-~/.gemini/config}:/data/config:ro

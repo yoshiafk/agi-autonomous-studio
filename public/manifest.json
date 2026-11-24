@@ -1,0 +1,24 @@
+{
+  "name": "Antigravity Autonomous Studio",
+  "short_name": "AGI Studio",
+  "description": "Live 2D virtual office visualizer and real-time agent telemetry engine for Google Antigravity",
+  "start_url": "/?auto=true",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "developer",
+    "productivity",
+    "utilities"
+  ]
+}

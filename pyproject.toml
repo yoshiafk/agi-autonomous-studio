@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agi-autonomous-studio"
+version = "1.0.0"
+description = "Live 2D virtual office visualizer and real-time agent telemetry engine for Google Antigravity"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Yosafat", email = "yosyfakry@gmail.com" }
+]
+keywords = ["antigravity", "agent", "visualizer", "telemetry", "chiptune", "virtual-office"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: User Interfaces"
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/yoshiafk/agi-autonomous-studio"
+Repository = "https://github.com/yoshiafk/agi-autonomous-studio.git"
+Issues = "https://github.com/yoshiafk/agi-autonomous-studio/issues"
+
+[project.scripts]
+agi-studio = "studio.core:run"
+
+[tool.setuptools.packages.find]
+include = ["studio*"]
