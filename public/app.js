@@ -162,6 +162,31 @@ function initUIEvents() {
   }
   if (demoBtn) demoBtn.addEventListener('click', runDemoSimulation);
 
+  // Toggle Immersive Stage View (Full Canvas / Split View)
+  const toggleViewBtn = document.getElementById('btn-toggle-view');
+  if (toggleViewBtn) {
+    toggleViewBtn.addEventListener('click', () => {
+      const dashboard = document.getElementById('main-dashboard');
+      const label = document.getElementById('view-mode-label');
+      if (dashboard) {
+        const isImmersive = dashboard.classList.toggle('immersive-mode');
+        if (label) {
+          label.textContent = isImmersive ? 'Split View' : 'Expand Stage';
+        }
+        window.dispatchEvent(new Event('resize'));
+        showToast(isImmersive ? "Immersive Stage Mode Activated" : "Split Studio Mode Restored");
+      }
+    });
+  }
+
+  // Keyboard Shortcut Alt+Z to Toggle Immersive Mode
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (toggleViewBtn) toggleViewBtn.click();
+    }
+  });
+
   // Artifacts Drawer
   const openArtifactsBtn = document.getElementById('btn-open-artifacts');
   const closeArtifactsBtn = document.getElementById('btn-close-artifacts');
@@ -1251,80 +1276,192 @@ function getFeedContainer() {
   return feed;
 }
 
-function getCommandBadge(command) {
-  const cmd = (command || "").trim();
+// --- Executive Action Translation Engine ---
+
+function parseCleanCommand(rawCmd) {
+  if (!rawCmd) return "";
+  let cmd = rawCmd.trim();
+
+  // Strip WSL wrapper: wsl -d <distro> --cd <path> -e bash -c "<clean>"
+  const wslMatch = cmd.match(/^wsl(?:\.exe)?\s+(?:-[^\s]+\s+[^\s]+\s+)*-e\s+bash\s+-c\s+["'](.*)["']$/s);
+  if (wslMatch && wslMatch[1]) {
+    cmd = wslMatch[1].trim();
+  }
+
+  // Strip PowerShell wrapper: powershell ... -Command "<clean>"
+  const psMatch = cmd.match(/^powershell(?:\.exe)?\s+(?:-[^\s]+\s+)*-Command\s+["'](.*)["']$/s);
+  if (psMatch && psMatch[1]) {
+    cmd = psMatch[1].trim();
+  }
+
+  // Strip git -C '...' path prefix
+  cmd = cmd.replace(/^git(?:\.exe)?\s+-C\s+['"][^'"]+['"]\s+/i, 'git ');
+
+  return cmd;
+}
+
+function getExecutiveStory(cleanCmd, summary) {
+  const cmd = (cleanCmd || "").trim();
   const cmdLower = cmd.toLowerCase();
 
-  // Test for real git invocation: must match word boundary "git" (e.g. git add, git commit, git push, git -C)
-  // NOT matching "--exclude-dir=.git" or flags/paths!
-  const isGitCmd = /(?:^|\s|["'`/;|&])git(?:\.exe)?(?:\s+|$)/i.test(cmd);
-
-  if (isGitCmd) {
-    if (/\bpush\b/i.test(cmdLower)) return { text: "GIT PUSH", class: "feed-badge badge-git" };
-    if (/\bcommit\b/i.test(cmdLower)) return { text: "GIT COMMIT", class: "feed-badge badge-git" };
-    if (/\b(add|stage)\b/i.test(cmdLower)) return { text: "GIT ADD", class: "feed-badge badge-git" };
-    if (/\b(status|diff|log|branch|checkout|switch|restore)\b/i.test(cmdLower)) return { text: "GIT STATUS", class: "feed-badge badge-git" };
-    return { text: "GIT", class: "feed-badge badge-git" };
+  // 1. Git Commit
+  const commitMatch = cmd.match(/git\s+commit\s+(?:-[^\s]+\s+)*-m\s+["'](.*?)["']/i);
+  if (commitMatch && commitMatch[1]) {
+    const msg = commitMatch[1].replace(/\\"/g, '"');
+    return {
+      badge: "GIT COMMIT",
+      badgeClass: "badge-git",
+      title: "Committed Repository Changes",
+      detail: msg,
+      category: "cmd"
+    };
   }
 
-  // Test runners
-  if (/\b(pytest|unittest|test|jest|vitest|playwright)\b/i.test(cmdLower)) {
-    return { text: "TEST", class: "feed-badge badge-test" };
+  // 2. Git Push
+  if (/\bgit\b.*\bpush\b/i.test(cmd)) {
+    const branchMatch = cmd.match(/push\s+([^\s]+)\s+([^\s]+)/i);
+    const target = branchMatch ? `${branchMatch[1]} (${branchMatch[2]})` : "remote origin";
+    return {
+      badge: "GIT PUSH",
+      badgeClass: "badge-git",
+      title: "Pushed Commits to Remote",
+      detail: `Synchronized branch with ${target}`,
+      category: "cmd"
+    };
   }
 
-  // Container / Docker
-  if (/\b(docker|docker-compose)\b/i.test(cmdLower)) {
-    return { text: "DOCKER", class: "feed-badge badge-ops" };
+  // 3. Git Add / Stage
+  if (/\bgit\b.*\b(add|stage)\b/i.test(cmd)) {
+    const target = cmd.replace(/git\s+(add|stage)\s+/i, '').trim();
+    return {
+      badge: "GIT STAGE",
+      badgeClass: "badge-git",
+      title: "Staged Changes for Commit",
+      detail: target ? `Target: ${target}` : "Staged modified repository files",
+      category: "cmd"
+    };
   }
 
-  // Search / grep / find
+  // 4. Git Diff / Status / Check
+  if (/\bgit\b.*\b(diff|status|log|branch|checkout|switch|restore)\b/i.test(cmd)) {
+    return {
+      badge: "GIT CHECK",
+      badgeClass: "badge-git",
+      title: "Inspected Repository Status & Diffs",
+      detail: summary || "Audited working tree modifications",
+      category: "cmd"
+    };
+  }
+
+  // 5. Automated Tests
+  if (/\b(unittest|pytest|test|jest|vitest|playwright)\b/i.test(cmdLower)) {
+    return {
+      badge: "TEST SUITE",
+      badgeClass: "badge-test",
+      title: "Executed Automated Test Suite",
+      detail: summary || "Ran test discovery and regression assertions",
+      category: "cmd"
+    };
+  }
+
+  // 6. Search / Grep / Find
   if (/\b(grep|find|search|glob|ripgrep|rg)\b/i.test(cmdLower)) {
-    return { text: "SEARCH", class: "feed-badge badge-search" };
+    return {
+      badge: "SEARCH",
+      badgeClass: "badge-search",
+      title: "Searched Codebase Patterns",
+      detail: summary || "Scanned files for symbols and tokens",
+      category: "read"
+    };
   }
 
-  return { text: "CLI", class: "feed-badge" };
+  // 7. Docker / Containers
+  if (/\b(docker|docker-compose)\b/i.test(cmdLower)) {
+    return {
+      badge: "OPS CONTAINER",
+      badgeClass: "badge-ops",
+      title: "Container & Environment Operation",
+      detail: summary || cmd,
+      category: "cmd"
+    };
+  }
+
+  // 8. General Command Fallback
+  return {
+    badge: "ACTION",
+    badgeClass: "feed-badge",
+    title: summary || "Executed System Operation",
+    detail: cmd.length > 90 ? cmd.slice(0, 90) + "..." : cmd,
+    category: "cmd"
+  };
+}
+
+function getCommandBadge(command) {
+  const cleanCmd = parseCleanCommand(command);
+  const story = getExecutiveStory(cleanCmd, "");
+  return { text: story.badge, class: `feed-badge ${story.badgeClass}` };
 }
 
 function renderCommandCard(command, summary) {
   const feed = getFeedContainer();
   if (!feed) return;
 
-  const badge = getCommandBadge(command);
+  const cleanCmd = parseCleanCommand(command);
+  const story = getExecutiveStory(cleanCmd, summary);
 
   const card = document.createElement('div');
-  card.className = "feed-card flex flex-col gap-2";
-  card.dataset.category = 'cmd';
+  card.className = "storyline-card flex flex-col gap-1.5";
+  card.dataset.category = story.category;
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="${badge.class}">${escapeHtml(badge.text)}</span>
-        <span class="font-semibold text-xs truncate max-w-[220px]">${escapeHtml(summary)}</span>
+        <span class="${story.badgeClass}">${escapeHtml(story.badge)}</span>
+        <span class="font-bold text-xs truncate max-w-[260px]" style="color: var(--text-primary);">${escapeHtml(story.title)}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button class="feed-action-btn copy-cmd-btn" title="Copy exact command">Copy</button>
+        <button class="cli-toggle-btn" title="Toggle technical command trace">
+          <svg class="w-3 h-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+          <span>CLI Trace</span>
+        </button>
         <span class="text-[10px] text-slate-400 font-mono">${new Date().toLocaleTimeString()}</span>
       </div>
     </div>
-    <div class="cmd-box truncate cursor-pointer hover:border-[var(--accent-primary)] transition" title="Click to view full command in inspector">
-      $ ${escapeHtml(command)}
+    <div class="text-xs truncate font-medium" style="color: var(--text-secondary);" title="${escapeHtml(story.detail)}">
+      ${escapeHtml(story.detail)}
+    </div>
+    <div class="cli-trace-drawer hidden">
+      <div class="flex items-center justify-between px-2.5 py-1 text-[10px] bg-black/20 border-b border-[var(--border-card)] text-slate-400">
+        <span class="font-mono">Terminal Trace</span>
+        <button class="feed-action-btn copy-cmd-btn" title="Copy exact terminal command">Copy</button>
+      </div>
+      <pre class="cli-trace-code cursor-pointer" title="Click to open Diff / Inspector modal">$ ${escapeHtml(cleanCmd)}</pre>
     </div>
   `;
+
+  const toggleBtn = card.querySelector('.cli-toggle-btn');
+  const drawer = card.querySelector('.cli-trace-drawer');
+  if (toggleBtn && drawer) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      drawer.classList.toggle('hidden');
+    });
+  }
 
   const copyBtn = card.querySelector('.copy-cmd-btn');
   if (copyBtn) {
     copyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      navigator.clipboard.writeText(command);
+      navigator.clipboard.writeText(cleanCmd);
       showToast("Copied terminal command to clipboard!");
     });
   }
 
-  const cmdBox = card.querySelector('.cmd-box');
-  if (cmdBox) {
-    cmdBox.addEventListener('click', () => {
+  const codeBox = card.querySelector('.cli-trace-code');
+  if (codeBox) {
+    codeBox.addEventListener('click', () => {
       if (window.DiffInspector) {
-        const outHtml = window.DiffInspector.renderCommandOutput(command, summary);
-        showDiffModal(`Command: ${summary}`, outHtml, command);
+        const outHtml = window.DiffInspector.renderCommandOutput(cleanCmd, story.title);
+        showDiffModal(`Command: ${story.title}`, outHtml, cleanCmd);
       }
     });
   }
@@ -1340,8 +1477,28 @@ function renderFileCard(filePath, action, target = null, replacement = null) {
   const ext = fileName.split('.').pop() || "";
   const isEdit = (action.toLowerCase().includes("edit") || action.toLowerCase().includes("write"));
 
+  // Friendly relative path
+  let friendlyPath = filePath;
+  const brainIdx = filePath.indexOf("brain");
+  if (brainIdx !== -1) {
+    const parts = filePath.slice(brainIdx).split(/[\\/]/);
+    friendlyPath = `artifacts / ${parts.slice(2).join(" / ") || fileName}`;
+  } else {
+    const projIdx = filePath.indexOf("agi-autonomous-studio");
+    if (projIdx !== -1) {
+      friendlyPath = filePath.slice(projIdx + "agi-autonomous-studio".length).replace(/^[\\/]/, "");
+    }
+  }
+
+  const badgeText = action.toLowerCase().includes("write") ? "FILE CREATE" :
+                    action.toLowerCase().includes("edit") ? "CODE EDIT" : "DOCS READ";
+  const badgeClass = isEdit ? "badge-git" : "badge-search";
+  const actionTitle = action.toLowerCase().includes("write") ? `Created ${fileName}` :
+                      action.toLowerCase().includes("edit") ? `Edited ${fileName}` :
+                      `Reviewed ${fileName}`;
+
   const card = document.createElement('div');
-  card.className = "feed-card flex flex-col gap-1.5";
+  card.className = "storyline-card flex flex-col gap-1.5";
   card.dataset.category = isEdit ? 'edit' : 'read';
 
   let inspectBtnHtml = "";
@@ -1357,8 +1514,8 @@ function renderFileCard(filePath, action, target = null, replacement = null) {
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="feed-badge">${escapeHtml(action.toUpperCase())}</span>
-        <span class="font-bold text-xs truncate max-w-[200px]" style="color: var(--text-primary);">${escapeHtml(fileName)}</span>
+        <span class="feed-badge ${badgeClass}">${badgeText}</span>
+        <span class="font-bold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">${escapeHtml(actionTitle)}</span>
         <span class="feed-badge text-[9px] font-mono">${escapeHtml(ext)}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -1366,8 +1523,9 @@ function renderFileCard(filePath, action, target = null, replacement = null) {
         <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
       </div>
     </div>
-    <div class="text-[11px] font-mono truncate" style="color: var(--text-muted);">
-      ${escapeHtml(filePath)}
+    <div class="text-[11px] truncate flex items-center gap-1.5 font-medium" style="color: var(--text-secondary);">
+      <svg class="w-3 h-3 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span class="truncate">${escapeHtml(friendlyPath)}</span>
     </div>
   `;
 
@@ -1392,18 +1550,18 @@ function renderResearchCard(toolName, query) {
   if (!feed) return;
 
   const card = document.createElement('div');
-  card.className = "feed-card flex flex-col gap-1.5";
+  card.className = "storyline-card flex flex-col gap-1.5";
   card.dataset.category = 'read';
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="feed-badge">DOCS</span>
-        <span class="font-semibold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">${escapeHtml(toolName)}</span>
+        <span class="feed-badge badge-search">DOCS</span>
+        <span class="font-bold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">Inspected Documentation</span>
       </div>
       <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div class="text-xs italic truncate" style="color: var(--text-secondary);">
-      "${escapeHtml(query)}"
+    <div class="text-xs italic truncate font-medium" style="color: var(--text-secondary);">
+      Query: "${escapeHtml(query)}"
     </div>
   `;
   appendCard(feed, card);
@@ -1415,7 +1573,7 @@ function renderThinkingCard(thoughtSnippet) {
 
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('activity', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-start gap-2";
+  card.className = "storyline-card flex items-start gap-2";
   card.dataset.category = 'other';
   card.innerHTML = `
     <span class="shrink-0 mt-0.5">${iconSvg}</span>
@@ -1432,7 +1590,7 @@ function renderFocusCard(focusText) {
 
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('target', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-center justify-between gap-2";
+  card.className = "storyline-card flex items-center justify-between gap-2";
   card.dataset.category = 'other';
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate">
@@ -1449,7 +1607,7 @@ function renderErrorCard(title, details) {
   if (!feed) return;
 
   const card = document.createElement('div');
-  card.className = "feed-card flex flex-col gap-1.5 border-l-2 border-red-500 bg-red-50/10 dark:bg-red-950/20";
+  card.className = "storyline-card flex flex-col gap-1.5 border-l-2 border-red-500 bg-red-50/10 dark:bg-red-950/20";
   card.dataset.category = 'error';
   const timeStr = new Date().toLocaleTimeString();
   card.innerHTML = `
@@ -1472,14 +1630,29 @@ function renderGenericCard(title, details, borderClass = "", iconName = "activit
 
   const isSubagent = title.toLowerCase().includes("subagent") || title.toLowerCase().includes("swarm");
   const iconSvg = typeof renderIcon === 'function' ? renderIcon(iconName, "w-3.5 h-3.5 text-indigo-500 shrink-0") : "";
+
+  let execTitle = title;
+  let execDetails = details;
+  if (title.includes("manage_task")) {
+    execTitle = "Background Orchestration";
+    if (details.includes('"Action": "status"')) {
+      execDetails = "Checked background task status";
+    } else if (details.includes('"Action": "kill"')) {
+      execDetails = "Terminated background task process";
+    }
+  } else if (title.includes("Turn Complete")) {
+    execTitle = "Milestone Achieved";
+    execDetails = "All turn steps completed. Specialists resting at Breakout Lounge.";
+  }
+
   const card = document.createElement('div');
-  card.className = `feed-card flex items-center justify-between gap-2.5 ${borderClass}`;
+  card.className = `storyline-card flex items-center justify-between gap-2.5 ${borderClass}`;
   card.dataset.category = isSubagent ? 'subagent' : 'other';
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate text-xs" style="color: var(--text-secondary);">
       ${iconSvg}
       <div class="truncate">
-        <strong class="font-semibold" style="color: var(--text-primary);">${escapeHtml(title)}:</strong> ${escapeHtml(details)}
+        <strong class="font-semibold" style="color: var(--text-primary);">${escapeHtml(execTitle)}:</strong> ${escapeHtml(execDetails)}
       </div>
     </div>
     <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
