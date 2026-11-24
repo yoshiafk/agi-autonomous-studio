@@ -56,5 +56,18 @@ class TestServerAPIAndSecurity(unittest.TestCase):
             self.assertEqual(data["display"], "standalone")
             self.assertEqual(data["short_name"], "AGI Studio")
 
+    def test_available_agents_endpoint(self):
+        url = f"http://127.0.0.1:{self.test_port}/api/agents/available"
+        req = urllib.request.Request(url, headers={"Host": f"127.0.0.1:{self.test_port}"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("Content-Type"), "application/json")
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertIsInstance(data, list)
+            self.assertGreater(len(data), 0)
+            ids = [a["id"] for a in data]
+            self.assertIn("lead-architect", ids)
+            self.assertIn("core-developer", ids)
+
 if __name__ == "__main__":
     unittest.main()

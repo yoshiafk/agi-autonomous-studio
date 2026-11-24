@@ -28,7 +28,8 @@ class OfficeSimulator {
     this.zones = {
       windowWall: { y: 65, height: 60 },
       glassBoard: { x: 130, y: 155, label: "Strategy Easel" },
-      library: { x: 380, y: 155, label: "Knowledge Archive" },
+      library: { x: 360, y: 155, label: "Knowledge Archive" },
+      securityVault: { x: 620, y: 150, label: "Security Vault" },
       serverLab: { x: 1045, y: 155, label: "CI/CD Server Bay" },
       espressoBar: { x: 145, y: 345, label: "Espresso Lounge" },
       postOffice: { x: 1030, y: 340, label: "Git Post Office" },
@@ -37,12 +38,14 @@ class OfficeSimulator {
         { x: 860, y: 155, type: "ficus" },
         { x: 45, y: 405, type: "palm" }
       ],
-      // 4 Spacious Executive Desks (2 on left, 2 on right - leaves 280px wide central atrium!)
+      // 6 Executive Workstation Desks in Central Atrium (Row 1 & Row 2)
       desks: [
-        { x: 440, y: 260, occupiedBy: 0 },
-        { x: 720, y: 260, occupiedBy: null },
-        { x: 440, y: 370, occupiedBy: null },
-        { x: 720, y: 370, occupiedBy: null }
+        { x: 380, y: 260, occupiedBy: 0 },
+        { x: 570, y: 260, occupiedBy: null },
+        { x: 760, y: 260, occupiedBy: null },
+        { x: 380, y: 375, occupiedBy: null },
+        { x: 570, y: 375, occupiedBy: null },
+        { x: 760, y: 375, occupiedBy: null }
       ]
     };
 
@@ -104,7 +107,14 @@ class OfficeSimulator {
       researcher: { role: "Research Analyst", color: "#7c3aed", hair: "#d97706", shirt: "#ede9fe" },
       coder: { role: "Core Developer", color: "#059669", hair: "#334155", shirt: "#d1fae5" },
       devops: { role: "DevOps & QA", color: "#d97706", hair: "#475569", shirt: "#fef3c7" },
-      dispatcher: { role: "Git Postmaster", color: "#0891b2", hair: "#1e293b", shirt: "#cffafe" }
+      dispatcher: { role: "Git Postmaster", color: "#0891b2", hair: "#1e293b", shirt: "#cffafe" },
+      reviewer: { role: "Code Reviewer", color: "#6366f1", hair: "#1e293b", shirt: "#e0e7ff" },
+      security: { role: "Security Auditor", color: "#ef4444", hair: "#0f172a", shirt: "#fee2e2" },
+      tester: { role: "Test Engineer", color: "#f59e0b", hair: "#475569", shirt: "#fef3c7" },
+      architect: { role: "AI Architect", color: "#8b5cf6", hair: "#1e1b4b", shirt: "#ede9fe" },
+      optimizer: { role: "Perf Optimizer", color: "#10b981", hair: "#064e3b", shirt: "#d1fae5" },
+      browser: { role: "Browser Agent", color: "#3b82f6", hair: "#1e3a8a", shirt: "#dbeafe" },
+      designer: { role: "Creative Designer", color: "#ec4899", hair: "#831843", shirt: "#fce7f3" }
     };
 
     const d0 = this.zones.desks[0];
@@ -274,8 +284,11 @@ class OfficeSimulator {
     if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 342) < 45) {
       return "📮 Git Post Office";
     }
-    if (ag.key === "devops" && Math.hypot(ag.x - 980, ag.y - 165) < 45) {
+    if ((ag.key === "devops" || ag.key === "tester") && Math.hypot(ag.x - 980, ag.y - 165) < 45) {
       return "🖥️ CI/CD Server Bay";
+    }
+    if ((ag.key === "security" || (ag.role && ag.role.toLowerCase().includes("security"))) && Math.hypot(ag.x - this.zones.securityVault.x, ag.y - (this.zones.securityVault.y + 35)) < 65) {
+      return "🛡️ Security Vault";
     }
     if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 30), ag.y - (this.zones.glassBoard.y + 35)) < 60) {
       return "📋 Strategy Easel";
@@ -283,9 +296,10 @@ class OfficeSimulator {
     if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 60) {
       return "📚 Knowledge Archive";
     }
-    if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < 4) {
-      const execTier = ag.deskIndex < 2 ? "Front Exec" : "Back Exec";
-      return `📍 Desk ${ag.deskIndex + 1} (${execTier})`;
+    if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < this.zones.desks.length) {
+      const row = ag.deskIndex < 3 ? "Front" : "Back";
+      const col = (ag.deskIndex % 3) + 1;
+      return `📍 Desk ${ag.deskIndex + 1} (${row} Pod ${col})`;
     }
     return "📍 Studio Floor";
   }
@@ -309,6 +323,18 @@ class OfficeSimulator {
       initialX = this.zones.glassBoard.x + 30;
       initialY = this.zones.glassBoard.y + 35;
       this.zones.desks[0].occupiedBy = 0;
+    } else if (roleKey === "security") {
+      deskIdx = null;
+      initialX = this.zones.securityVault.x;
+      initialY = this.zones.securityVault.y + 35;
+    } else if (roleKey === "devops" || roleKey === "tester") {
+      deskIdx = null;
+      initialX = 980;
+      initialY = 165;
+    } else if (roleKey === "researcher") {
+      deskIdx = null;
+      initialX = this.zones.library.x + 20;
+      initialY = this.zones.library.y + 35;
     } else {
       let openDesk = this.zones.desks.findIndex((d, i) => i > 0 && d.occupiedBy === null);
       if (openDesk !== -1) {
@@ -340,6 +366,77 @@ class OfficeSimulator {
     };
 
     this.agents.push(ag);
+    this.updateRosterUI();
+    return ag;
+  }
+
+  registerPluginAgents(pluginAgents) {
+    if (!Array.isArray(pluginAgents)) return;
+    pluginAgents.forEach(p => {
+      if (!p || !p.id) return;
+      const key = p.id.replace(/-/g, "_");
+      this.specialistTemplates[p.id] = {
+        role: p.name || p.role || p.id,
+        color: p.color || "#6366f1",
+        hair: p.hair || "#334155",
+        shirt: p.shirt || "#f1f5f9",
+        station: p.station || "📍 Studio Workstation"
+      };
+      if (key !== p.id) {
+        this.specialistTemplates[key] = this.specialistTemplates[p.id];
+      }
+    });
+  }
+
+  handleSubagentInvocation(typeName, role, prompt) {
+    const rawType = (typeName || "coder").toLowerCase();
+    let roleKey = "coder";
+
+    if (rawType.includes("review")) roleKey = "reviewer";
+    else if (rawType.includes("security") || rawType.includes("audit")) roleKey = "security";
+    else if (rawType.includes("test") || rawType.includes("qa")) roleKey = "tester";
+    else if (rawType.includes("architect")) roleKey = "architect";
+    else if (rawType.includes("optimi") || rawType.includes("perf")) roleKey = "optimizer";
+    else if (rawType.includes("research") || rawType.includes("analyst")) roleKey = "researcher";
+    else if (rawType.includes("deploy") || rawType.includes("devops") || rawType.includes("ci")) roleKey = "devops";
+    else if (rawType.includes("git") || rawType.includes("push") || rawType.includes("dispatch")) roleKey = "dispatcher";
+    else if (rawType.includes("browser") || rawType.includes("web")) roleKey = "browser";
+    else if (rawType.includes("image") || rawType.includes("design")) roleKey = "designer";
+    else if (this.specialistTemplates[rawType]) roleKey = rawType;
+
+    const name = role || (this.specialistTemplates[roleKey] ? this.specialistTemplates[roleKey].role : rawType);
+    const ag = this.getOrCreateSpecialist(roleKey, name);
+
+    ag.state = "working";
+    ag.isPaused = false;
+    ag.currentTask = prompt ? (prompt.length > 40 ? prompt.slice(0, 37) + "..." : prompt) : "Delegated Subagent Task";
+    ag.speech = prompt ? (prompt.length > 45 ? prompt.slice(0, 42) + "..." : prompt) : `Executing ${name}...`;
+
+    if (roleKey === "security") {
+      ag.targetX = this.zones.securityVault.x;
+      ag.targetY = this.zones.securityVault.y + 35;
+    } else if (roleKey === "devops" || roleKey === "tester") {
+      ag.targetX = 980;
+      ag.targetY = 165;
+    } else if (roleKey === "dispatcher") {
+      ag.targetX = 980;
+      ag.targetY = 342;
+    } else if (roleKey === "researcher") {
+      ag.targetX = this.zones.library.x + 20;
+      ag.targetY = this.zones.library.y + 35;
+    } else if (roleKey === "planner") {
+      ag.targetX = this.zones.glassBoard.x + 30;
+      ag.targetY = this.zones.glassBoard.y + 35;
+    } else if (ag.deskIndex !== null && ag.deskIndex !== undefined && this.zones.desks[ag.deskIndex]) {
+      ag.targetX = this.zones.desks[ag.deskIndex].x;
+      ag.targetY = this.zones.desks[ag.deskIndex].y - 14;
+    }
+
+    if (this.spawnParticle) {
+      this.spawnParticle(ag.targetX, ag.targetY - 20, 'badge', '⚡', ag.color || '#3b82f6');
+    }
+
+    this.selectAgent(ag.id);
     this.updateRosterUI();
     return ag;
   }
@@ -845,6 +942,67 @@ class OfficeSimulator {
     this.ctx.font = 'bold 9px sans-serif';
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#cbd5e1' : '#78350f';
     this.ctx.fillText("KNOWLEDGE ARCHIVE", x - bw / 2 + 10, y - bh / 2 + 18);
+  }
+
+  drawSecurityVault(x, y, palette) {
+    const vw = 96;
+    const vh = 72;
+    const isNight = (this.lightingMode === 'night');
+
+    // Vault Console Body
+    this.ctx.fillStyle = isNight ? '#0f172a' : '#f8fafc';
+    this.ctx.strokeStyle = isNight ? '#334155' : '#cbd5e1';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - vw / 2, y - vh / 2, vw, vh, 6);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // High-tech Header Bar
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#e2e8f0';
+    this.ctx.fillRect(x - vw / 2 + 4, y - vh / 2 + 4, vw - 8, 16);
+
+    this.ctx.font = 'bold 8.5px sans-serif';
+    this.ctx.fillStyle = isNight ? '#f87171' : '#dc2626';
+    this.ctx.fillText("SECURITY VAULT", x - vw / 2 + 8, y - vh / 2 + 15);
+
+    // Status LED
+    const pulse = Math.sin(this.tickCount * 0.08) > 0;
+    this.ctx.fillStyle = pulse ? '#10b981' : '#059669';
+    this.ctx.beginPath();
+    this.ctx.arc(x + vw / 2 - 12, y - vh / 2 + 12, 3, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Central Vault Terminal Screen
+    this.ctx.fillStyle = isNight ? '#020617' : '#0f172a';
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - vw / 2 + 8, y - vh / 2 + 24, vw - 16, 40, 4);
+    this.ctx.fill();
+
+    // Shield Glyph / Scanning HUD
+    this.ctx.strokeStyle = '#ef4444';
+    this.ctx.lineWidth = 1.2;
+    this.ctx.beginPath();
+    const sx = x;
+    const sy = y + 4;
+    this.ctx.moveTo(sx, sy - 8);
+    this.ctx.lineTo(sx + 7, sy - 4);
+    this.ctx.lineTo(sx + 7, sy + 3);
+    this.ctx.quadraticCurveTo(sx + 7, sy + 9, sx, sy + 12);
+    this.ctx.quadraticCurveTo(sx - 7, sy + 9, sx - 7, sy + 3);
+    this.ctx.lineTo(sx - 7, sy - 4);
+    this.ctx.closePath();
+    this.ctx.stroke();
+
+    // Lock check inside shield
+    this.ctx.fillStyle = '#22c55e';
+    this.ctx.font = 'bold 7px sans-serif';
+    this.ctx.fillText("0 VULN", x - 13, y + 22);
+
+    // Particle pulse
+    if (this.tickCount % 90 === 0 && this.spawnParticle) {
+      this.spawnParticle(x + (Math.random() - 0.5) * 30, y - 5, 'shield', '🛡️', '#ef4444');
+    }
   }
 
   drawServerBay(x, y, palette) {
@@ -1970,6 +2128,7 @@ class OfficeSimulator {
     // 4. Draw Stations (Clean, uncluttered, no giant easel legs or empty collab hub!)
     this.drawStrategyBoard(this.zones.glassBoard.x, this.zones.glassBoard.y, palette);
     this.drawOakBookshelf(this.zones.library.x, this.zones.library.y, palette);
+    this.drawSecurityVault(this.zones.securityVault.x, this.zones.securityVault.y, palette);
     this.drawServerBay(this.zones.serverLab.x, this.zones.serverLab.y, palette);
     this.drawMarbleEspressoBar(this.zones.espressoBar.x, this.zones.espressoBar.y, palette);
     this.drawGitPostOffice(this.zones.postOffice.x, this.zones.postOffice.y, palette);

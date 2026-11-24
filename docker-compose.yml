@@ -14,5 +14,7 @@ services:
       - ANTIGRAVITY_DATA_DIR=/data/antigravity
       - ANTIGRAVITY_CONFIG_DIR=/data/config
     volumes:
+      - ./studio:/app/studio:ro
+      - ./public:/app/public:ro
       - ${ANTIGRAVITY_DATA_DIR:-~/.gemini/antigravity}:/data/antigravity:ro
       - ${ANTIGRAVITY_CONFIG_DIR:-~/.gemini/config}:/data/config:ro

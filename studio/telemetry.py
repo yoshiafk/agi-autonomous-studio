@@ -5,6 +5,7 @@ session detection across workspaces.
 """
 
 import sys
+import re
 import json
 import time
 import sqlite3
@@ -12,6 +13,91 @@ import urllib.parse
 from pathlib import Path
 
 _PROJECT_MANIFESTS_CACHE = {"data": {}, "last_scanned": 0}
+
+AGENT_STYLE_PRESETS = {
+    "lead-architect": {"name": "Lead Architect", "role": "Planner & Coordinator", "color": "#4f46e5", "hair": "#b45309", "shirt": "#e0e7ff", "station": "📋 Strategy Easel"},
+    "core-developer": {"name": "Core Developer", "role": "Full-Stack Engineer", "color": "#059669", "hair": "#334155", "shirt": "#d1fae5", "station": "📍 Desk 1"},
+    "research-analyst": {"name": "Research Analyst", "role": "Researcher", "color": "#7c3aed", "hair": "#d97706", "shirt": "#ede9fe", "station": "📚 Knowledge Archive"},
+    "devops-qa": {"name": "DevOps & QA", "role": "DevOps & QA", "color": "#d97706", "hair": "#475569", "shirt": "#fef3c7", "station": "🖥️ CI/CD Server Bay"},
+    "git-postmaster": {"name": "Git Postmaster", "role": "Git Postmaster", "color": "#0891b2", "hair": "#1e293b", "shirt": "#cffafe", "station": "📮 Git Post Office"},
+    "code-reviewer": {"name": "Code Reviewer", "role": "Senior Code Reviewer", "color": "#6366f1", "hair": "#1e293b", "shirt": "#e0e7ff", "station": "🔍 Review Desk"},
+    "security-auditor": {"name": "Security Auditor", "role": "Security Engineer", "color": "#ef4444", "hair": "#0f172a", "shirt": "#fee2e2", "station": "🛡️ Security Vault"},
+    "test-engineer": {"name": "Test Engineer", "role": "QA & Test Engineer", "color": "#f59e0b", "hair": "#475569", "shirt": "#fef3c7", "station": "🖥️ CI/CD Server Bay"},
+    "web-performance-auditor": {"name": "Web Perf Auditor", "role": "Performance Engineer", "color": "#14b8a6", "hair": "#334155", "shirt": "#ccfbf1", "station": "⚡ Performance Lab"},
+    "ai-architect": {"name": "AI Architect", "role": "AI Systems Architect", "color": "#8b5cf6", "hair": "#1e1b4b", "shirt": "#ede9fe", "station": "🧠 AI Architecture Pod"},
+    "deployment-expert": {"name": "Deployment Expert", "role": "CI/CD & Release Engineer", "color": "#06b6d4", "hair": "#164e63", "shirt": "#cffafe", "station": "📮 Git Post Office"},
+    "performance-optimizer": {"name": "Perf Optimizer", "role": "Core Web Vitals Specialist", "color": "#10b981", "hair": "#064e3b", "shirt": "#d1fae5", "station": "⚡ Performance Lab"},
+    "browser": {"name": "Browser Agent", "role": "Web Automation Specialist", "color": "#3b82f6", "hair": "#1e3a8a", "shirt": "#dbeafe", "station": "🌐 Web Terminal"},
+    "image-generator": {"name": "Creative Designer", "role": "Visual & Asset Designer", "color": "#ec4899", "hair": "#831843", "shirt": "#fce7f3", "station": "🎨 Creative Studio"}
+}
+
+def get_available_subagents(config_dir: Path) -> list:
+    """Discovers all available agent personas from plugins, user configs, and presets."""
+    agents_map = {}
+
+    # 1. Baseline core specialists
+    baseline_keys = ["lead-architect", "core-developer", "research-analyst", "devops-qa", "git-postmaster"]
+    for k in baseline_keys:
+        preset = AGENT_STYLE_PRESETS[k]
+        agents_map[k] = {
+            "id": k,
+            "name": preset["name"],
+            "role": preset["role"],
+            "description": f"Standard {preset['role']} specialist",
+            "source": "builtin",
+            "color": preset["color"],
+            "hair": preset["hair"],
+            "shirt": preset["shirt"],
+            "station": preset["station"]
+        }
+
+    # 2. Scan plugin and user agent markdown files
+    config_p = Path(config_dir)
+    agent_paths = []
+    if config_p.exists():
+        agent_paths.extend(config_p.glob("plugins/*/agents/*.md"))
+        agent_paths.extend(config_p.glob("agents/*.md"))
+
+    for af in agent_paths:
+        try:
+            content = af.read_text(encoding="utf-8")
+            raw_id = af.stem.lower()
+
+            name_m = re.search(r"^name:\s*(.+)$", content, re.MULTILINE)
+            desc_m = re.search(r"^description:\s*(.+)$", content, re.MULTILINE)
+
+            agent_id = name_m.group(1).strip().lower() if name_m else raw_id
+            description = desc_m.group(1).strip() if desc_m else ""
+            source = af.parent.parent.name if "plugins" in str(af) else "user"
+
+            preset = AGENT_STYLE_PRESETS.get(agent_id) or AGENT_STYLE_PRESETS.get(raw_id)
+            if not preset:
+                colors = ["#6366f1", "#ec4899", "#8b5cf6", "#14b8a6", "#f59e0b", "#3b82f6", "#10b981", "#ef4444"]
+                c_idx = abs(hash(agent_id)) % len(colors)
+                preset = {
+                    "name": agent_id.replace("-", " ").title(),
+                    "role": agent_id.replace("-", " ").title(),
+                    "color": colors[c_idx],
+                    "hair": "#334155",
+                    "shirt": "#f1f5f9",
+                    "station": "📍 Studio Workstation"
+                }
+
+            agents_map[agent_id] = {
+                "id": agent_id,
+                "name": preset["name"],
+                "role": preset["role"],
+                "description": description or preset.get("description", ""),
+                "source": source,
+                "color": preset["color"],
+                "hair": preset["hair"],
+                "shirt": preset["shirt"],
+                "station": preset["station"]
+            }
+        except Exception:
+            pass
+
+    return list(agents_map.values())
 
 def get_project_manifests(config_dir: Path, ttl=10.0) -> dict:
     """Returns cached project manifests from config_dir/projects/*.json with a TTL."""

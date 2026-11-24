@@ -28,7 +28,8 @@ from studio.security import (
 from studio.telemetry import (
     scan_projects,
     find_all_active_sessions,
-    find_active_conversation
+    find_active_conversation,
+    get_available_subagents
 )
 
 # Global runtime state
@@ -154,6 +155,17 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             self.wfile.write(json.dumps(projects).encode("utf-8"))
+            return
+
+        # API: Available Plugin & Subagent Personas
+        if path == "/api/agents/available":
+            agents = get_available_subagents(CONFIG_DIR)
+            self.send_response(200)
+            self.send_cors_and_security_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(json.dumps(agents).encode("utf-8"))
             return
 
         # API: Single Active Project

@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initAtmosphereControls();
   initUIEvents();
+  loadAvailableAgents();
   loadProjects();
   checkActiveSessions();
 
@@ -32,6 +33,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 2000);
 });
+
+async function loadAvailableAgents() {
+  try {
+    const res = await fetch('/api/agents/available');
+    if (res.ok) {
+      const data = await res.json();
+      if (officeSim && typeof officeSim.registerPluginAgents === 'function') {
+        officeSim.registerPluginAgents(data);
+      }
+    }
+  } catch (e) {
+    console.debug('Subagent discovery fallback to builtins:', e);
+  }
+}
 
 function initAtmosphereControls() {
   const modes = ['day', 'sunset', 'night', 'auto'];
@@ -569,6 +584,22 @@ function handleStepEvent(step, isHydrate = false) {
       let subagent = null;
       if (toolName === "invoke_subagent") {
         subagent = args.Role || args.TypeName || "Subagent";
+        if (officeSim && typeof officeSim.handleSubagentInvocation === 'function') {
+          officeSim.handleSubagentInvocation(args.TypeName, args.Role, args.Prompt);
+        }
+        renderGenericCard(`🤖 Subagent: ${subagent}`, (args.Prompt || "").slice(0, 100), "action-card-code");
+        return;
+      }
+
+      if (toolName === "swarm") {
+        const swarmName = args.name || "worker";
+        const swarmRole = args.role || args.name || "Swarm Specialist";
+        const swarmBrief = args.brief || (args.tasks ? args.tasks.join(", ") : "");
+        if (args.action === "add" && officeSim && typeof officeSim.handleSubagentInvocation === 'function') {
+          officeSim.handleSubagentInvocation(swarmName, swarmRole, swarmBrief);
+        }
+        renderGenericCard(`🐝 Swarm: ${swarmName}`, (swarmBrief || "").slice(0, 100), "action-card-code");
+        return;
       }
 
       // Handle update_focus
@@ -864,32 +895,36 @@ function renderRoadmapPipeline(steps) {
   }
 }
 
-// Interactive Multi-Role Sprint Demo
+// Interactive Multi-Role Sprint Demo with 6 Concurrent Specialists
 function runDemoSimulation() {
   const focusBanner = document.getElementById('focus-banner-text');
-  if (focusBanner) focusBanner.textContent = "Executing Autonomous Fullstack Sprint (/plan, /research, code, test, git push)";
+  if (focusBanner) focusBanner.textContent = "Executing Multi-Agent Autonomous Sprint (6 Specialists Active)";
 
   const demoRoadmap = [
-    { title: "Define Architecture", status: "in_progress" },
-    { title: "Research APIs", status: "pending" },
-    { title: "Implement Auth Pod", status: "pending" },
+    { title: "Define Architecture & Specs", status: "in_progress" },
+    { title: "Security Vulnerability Audit", status: "pending" },
+    { title: "Implement Auth Session Pod", status: "pending" },
+    { title: "Senior Code Review", status: "pending" },
     { title: "Docker QA Verification", status: "pending" },
     { title: "Git Push to Remote", status: "pending" }
   ];
   renderRoadmapPipeline(demoRoadmap);
 
-  officeSim.handleCommandTrigger("/plan", "Plan authentication architecture");
-  renderGenericCard("📐 Planning", "Lead Architect designing sprint roadmap");
+  // 1. Lead Architect (Planning Easel)
+  officeSim.handleCommandTrigger("/plan", "Architectural blueprint and roadmap planning");
+  renderGenericCard("📐 Planning", "Lead Architect designing system architecture at Strategy Easel");
 
+  // 2. Security Auditor (Security Vault)
   setTimeout(() => {
     demoRoadmap[0].status = "done";
     demoRoadmap[1].status = "in_progress";
     renderRoadmapPipeline(demoRoadmap);
 
-    officeSim.handleCommandTrigger("/research", "OAuth2 & Token Specs");
-    renderResearchCard("search_docs", "OAuth2 session token exchange");
+    officeSim.handleSubagentInvocation("security-auditor", "Security Auditor", "Audit authentication tokens and session security");
+    renderGenericCard("🛡️ Security Audit", "Security Auditor verifying cryptographic tokens at Security Vault");
   }, 2000);
 
+  // 3. Core Developer (Desk 1)
   setTimeout(() => {
     demoRoadmap[1].status = "done";
     demoRoadmap[2].status = "in_progress";
@@ -899,29 +934,42 @@ function runDemoSimulation() {
     renderFileCard("src/auth/session.ts", "Write File");
   }, 4000);
 
+  // 4. Code Reviewer (Desk 2)
   setTimeout(() => {
     demoRoadmap[2].status = "done";
     demoRoadmap[3].status = "in_progress";
     renderRoadmapPipeline(demoRoadmap);
 
-    officeSim.handleToolAction("run_command", { CommandLine: "docker compose run --rm tests pytest" });
-    renderCommandCard("docker compose run --rm tests pytest", "Automated QA Suite");
+    officeSim.handleSubagentInvocation("code-reviewer", "Code Reviewer", "Review session.ts against security requirements");
+    renderGenericCard("🔍 Code Review", "Senior Code Reviewer validating PR implementation");
   }, 6000);
 
+  // 5. Test Engineer & DevOps (CI/CD Bay)
   setTimeout(() => {
     demoRoadmap[3].status = "done";
     demoRoadmap[4].status = "in_progress";
     renderRoadmapPipeline(demoRoadmap);
 
-    officeSim.handleToolAction("run_command", { CommandLine: "git commit -m 'feat: ship auth session pod' && git push origin main" });
-    renderCommandCard("git commit -m 'feat: ship auth session pod' && git push origin main", "Push to Remote Repository");
+    officeSim.handleToolAction("run_command", { CommandLine: "docker compose run --rm tests pytest" });
+    renderCommandCard("docker compose run --rm tests pytest", "Automated QA Suite at CI/CD Bay");
   }, 8000);
 
+  // 6. Git Postmaster (Git Post Office)
   setTimeout(() => {
     demoRoadmap[4].status = "done";
+    demoRoadmap[5].status = "in_progress";
+    renderRoadmapPipeline(demoRoadmap);
+
+    officeSim.handleToolAction("run_command", { CommandLine: "git commit -m 'feat: ship auth session pod' && git push origin main" });
+    renderCommandCard("git commit -m 'feat: ship auth session pod' && git push origin main", "Remote Push at Git Post Office");
+  }, 10000);
+
+  // 7. Team Celebration & Espresso Lounge
+  setTimeout(() => {
+    demoRoadmap[5].status = "done";
     renderRoadmapPipeline(demoRoadmap);
 
     onConversationIdle();
-    renderGenericCard("🎉 Sprint Complete", "All milestones pushed to remote. Developers resting at Espresso Bar ☕");
-  }, 10500);
+    renderGenericCard("🎉 Sprint Complete", "All milestones validated and shipped. All 6 specialists taking team coffee break ☕");
+  }, 12500);
 }
