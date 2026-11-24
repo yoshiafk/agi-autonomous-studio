@@ -37,46 +37,41 @@
       <button id="mode-auto" class="segmented-btn" title="Sync with Local Clock">⏰ Auto</button>
     </div>
 
-    <!-- Active Workspace Controls -->
-    <div class="flex items-center gap-2.5">
-      <!-- Project Dropdown -->
-      <div class="relative">
-        <label for="project-select" class="sr-only">Workspace Selector</label>
-        <select id="project-select" class="text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition cursor-pointer shadow-sm">
+    <!-- Header Right Controls: Sound & Demo -->
+    <div class="flex items-center gap-2">
+      <button id="btn-audio-toggle" title="Toggle 8-bit Chiptune Audio" class="control-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
+        <span id="audio-icon">🔇</span>
+        <span id="audio-label">Muted</span>
+      </button>
+      <button id="btn-refresh" title="Refresh Projects" class="control-btn p-1.5 rounded-lg text-xs transition shadow-sm">
+        🔄
+      </button>
+      <button id="btn-simulate" title="Simulate Multi-Role Sprint" class="control-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
+        <span>⚡ Demo Sprint</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Live Workspace & Active Sessions Navigation Strip -->
+  <div id="active-sessions-bar" class="w-full max-w-[1720px] mx-auto px-3 md:px-4 py-2 flex flex-wrap items-center justify-between gap-3 shrink-0">
+    <!-- Left: Live Active Sessions Chips Carousel -->
+    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0" id="active-sessions-chips">
+      <!-- Dynamically populated session chips -->
+    </div>
+
+    <!-- Right: Consolidated Workspace Picker & Auto-Follow Toggle -->
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div class="relative flex items-center gap-1.5">
+        <label for="project-select" class="text-xs font-medium text-slate-500 select-none">Workspace:</label>
+        <select id="project-select" class="text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none transition cursor-pointer shadow-sm">
           <option value="" disabled selected>Loading Workspaces...</option>
         </select>
       </div>
 
-      <!-- Auto-Follow Toggle -->
-      <button id="toggle-autofollow" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm">
+      <button id="toggle-autofollow" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm" title="Toggle auto-follow across active workspaces">
         <span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
         <span>Auto-Follow: ON</span>
       </button>
-
-      <!-- Refresh & Quick Demo -->
-      <div class="flex items-center border-l border-slate-200 pl-2.5 gap-1.5">
-        <button id="btn-audio-toggle" title="Toggle 8-bit Chiptune Audio" class="control-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
-          <span id="audio-icon">🔇</span>
-          <span id="audio-label">Muted</span>
-        </button>
-        <button id="btn-refresh" title="Refresh Projects" class="control-btn p-1.5 rounded-lg text-xs transition shadow-sm">
-          🔄
-        </button>
-        <button id="btn-simulate" title="Simulate Multi-Role Sprint" class="control-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
-          <span>⚡ Demo Sprint</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Live Active Sessions Bar (Multi-Session Detection & Instant Switcher Strip) -->
-  <div id="active-sessions-bar" class="w-full max-w-[1720px] mx-auto px-3 md:px-4 pt-2 pb-1.5 flex items-center justify-between gap-3 shrink-0">
-    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0" id="active-sessions-chips">
-      <!-- Dynamically populated session chips -->
-    </div>
-    <div id="multi-session-badge" class="shrink-0 text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span id="active-sessions-count-text">Detecting active sessions...</span>
     </div>
   </div>
 

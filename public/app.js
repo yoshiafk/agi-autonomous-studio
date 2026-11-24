@@ -78,13 +78,7 @@ function initUIEvents() {
     const selected = e.target.value;
     if (selected) {
       localStorage.setItem('antigravity_selected_project', selected);
-      if (selected === 'auto') {
-        autoFollowEnabled = true;
-        updateAutoFollowButton();
-        checkActiveProject(true);
-      } else {
-        switchProject(selected);
-      }
+      switchProject(selected);
     }
   });
 
@@ -93,6 +87,7 @@ function initUIEvents() {
     updateAutoFollowButton();
     if (autoFollowEnabled) {
       checkActiveProject(true);
+      checkActiveSessions();
     }
   });
 
@@ -123,12 +118,15 @@ function initUIEvents() {
 
 function updateAutoFollowButton() {
   const btn = document.getElementById('toggle-autofollow');
+  if (!btn) return;
   if (autoFollowEnabled) {
     btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm";
     btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span><span>Auto-Follow: ON</span>`;
+    btn.title = "Auto-Follow is ON: automatically following active workspace sessions";
   } else {
     btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:text-slate-800 transition shadow-sm";
     btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>Auto-Follow: OFF</span>`;
+    btn.title = "Click to turn Auto-Follow ON";
   }
 }
 
@@ -138,13 +136,14 @@ async function loadProjects() {
     const projects = await res.json();
 
     const select = document.getElementById('project-select');
-    select.innerHTML = '<option value="auto">🌐 Auto-Follow Active Project</option>';
+    select.innerHTML = '<option value="" disabled>-- Select Workspace --</option>';
 
     projects.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.id;
       const statusIcon = p.active ? '🟢' : '⚪';
-      opt.textContent = `${statusIcon} ${p.display_name} (${p.total_conversations})`;
+      const activeText = p.active ? ' (Active)' : '';
+      opt.textContent = `${statusIcon} ${p.display_name}${activeText}`;
       select.appendChild(opt);
     });
 
@@ -173,13 +172,11 @@ async function loadProjects() {
 
     // Check saved project selection
     const saved = localStorage.getItem('antigravity_selected_project');
-    if (saved && saved !== 'auto') {
+    if (saved) {
       const match = projects.find(p => p.id === saved);
       if (match) {
         select.value = saved;
       }
-    } else {
-      select.value = 'auto';
     }
 
     checkActiveProject(true);
@@ -190,20 +187,7 @@ async function loadProjects() {
 
 async function checkActiveProject(force = false) {
   try {
-    const select = document.getElementById('project-select');
-    const selectedVal = select ? select.value : 'auto';
-
-    let url = '/api/projects/active';
-    const params = new URLSearchParams();
-
-    if (selectedVal && selectedVal !== 'auto') {
-      params.set('project_id', selectedVal);
-    } else {
-      // Exclude this visualizer meta-chat from stealing focus
-      params.set('exclude_conv_id', META_CONVERSATION_ID);
-    }
-    url += '?' + params.toString();
-
+    const url = `/api/projects/active?exclude_conv_id=${META_CONVERSATION_ID}`;
     const res = await fetch(url);
     const active = await res.json();
 
@@ -219,11 +203,12 @@ async function checkActiveProject(force = false) {
     }
     lastKnownActive = isActive;
 
-    if (force || active.conversation_id !== currentConversationId) {
+    if (force || (autoFollowEnabled && active.conversation_id !== currentConversationId)) {
       currentConversationId = active.conversation_id;
       currentProjectId = active.project_id;
 
-      if (select && selectedVal !== 'auto') {
+      const select = document.getElementById('project-select');
+      if (select) {
         select.value = active.project_id;
       }
 
@@ -342,12 +327,17 @@ function renderActiveSessionsBar(sessions) {
 
   if (sessions.length === 0) {
     container.innerHTML = `
-      <span class="text-[11.5px] text-slate-400 italic py-0.5">
-        No active background sessions detected.
+      <span class="text-xs text-slate-400 italic py-1 flex items-center gap-1.5">
+        <span>⚪</span> No active background sessions running.
       </span>
     `;
     return;
   }
+
+  const label = document.createElement('span');
+  label.className = "text-xs font-semibold text-slate-400 shrink-0 mr-1 select-none flex items-center gap-1";
+  label.innerHTML = `<span>⚡</span> Active:`;
+  container.appendChild(label);
 
   sessions.forEach(s => {
     const isCurrent = (s.conversation_id === currentConversationId);
