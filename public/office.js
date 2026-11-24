@@ -138,6 +138,7 @@ class OfficeSimulator {
       }
     ];
 
+    this.renderedBubbles = [];
     this.setupHiDPI();
     this.initEvents();
     this.initInspectorControls();
@@ -446,6 +447,53 @@ class OfficeSimulator {
     this.updateRosterUI();
   }
 
+  getStationCoordinates(stationKey, agentId = null) {
+    const stationSlots = {
+      serverLab: [
+        { x: 985, y: 170 }, // Slot 0: Primary Diagnostic Terminal
+        { x: 935, y: 175 }, // Slot 1: QA Mobile Diagnostic Cart (50px offset)
+        { x: 960, y: 215 }  // Slot 2: Staging Ops Bench
+      ],
+      postOffice: [
+        { x: 980, y: 342 }, // Slot 0: Main Dispatch Console
+        { x: 935, y: 342 }, // Slot 1: Packaging Table (45px offset)
+        { x: 955, y: 385 }  // Slot 2: Shipping Counter
+      ],
+      library: [
+        { x: 270, y: 180 }, // Slot 0: Main Archive Bookshelf
+        { x: 315, y: 180 }, // Slot 1: Research Reading Desk (45px offset)
+        { x: 290, y: 220 }  // Slot 2: Index Catalog Table
+      ],
+      glassBoard: [
+        { x: this.zones.glassBoard.x + 20, y: this.zones.glassBoard.y + 35 }, // Slot 0: Left Strategy Board
+        { x: this.zones.glassBoard.x + 65, y: this.zones.glassBoard.y + 35 }  // Slot 1: Right Ideation Easel
+      ],
+      securityVault: [
+        { x: this.zones.securityVault.x - 20, y: this.zones.securityVault.y + 35 }, // Slot 0: Vault Access Keypad
+        { x: this.zones.securityVault.x + 25, y: this.zones.securityVault.y + 35 }  // Slot 1: Sentinel Monitor
+      ]
+    };
+
+    const slots = stationSlots[stationKey];
+    if (!slots || slots.length === 0) {
+      return { x: 500, y: 300 };
+    }
+
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+      const isOccupied = this.agents.some(ag => {
+        if (agentId !== null && ag.id === agentId) return false;
+        return Math.hypot(ag.x - slot.x, ag.y - slot.y) < 28 || Math.hypot(ag.targetX - slot.x, ag.targetY - slot.y) < 28;
+      });
+      if (!isOccupied) {
+        return { x: slot.x, y: slot.y };
+      }
+    }
+
+    const offset = (agentId !== null ? (agentId * 15) % 40 : 15);
+    return { x: slots[0].x - offset, y: slots[0].y + (offset % 20) };
+  }
+
   getStationLabel(ag) {
     if (ag.currentTask && ag.currentTask.includes("Bookshelf")) {
       return "Knowledge Archive";
@@ -456,19 +504,19 @@ class OfficeSimulator {
     if (ag.state === "coffee" || ag.isRestingGoal || this.isIdleTask(ag.currentTask) || (Math.hypot(ag.x - 160, ag.y - 360) < 140)) {
       return "Breakout Lounge & Cafe";
     }
-    if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 345) < 55) {
+    if (ag.key === "dispatcher" || Math.hypot(ag.x - 960, ag.y - 350) < 85) {
       return "Git Remote Dispatch";
     }
-    if ((ag.key === "devops" || ag.key === "tester") && Math.hypot(ag.x - 980, ag.y - 165) < 55) {
+    if (ag.key === "devops" || ag.key === "tester" || Math.hypot(ag.x - 960, ag.y - 180) < 85) {
       return "CI/CD Server Bay";
     }
-    if ((ag.key === "security" || (ag.role && ag.role.toLowerCase().includes("security"))) && Math.hypot(ag.x - this.zones.securityVault.x, ag.y - (this.zones.securityVault.y + 35)) < 65) {
+    if ((ag.key === "security" || (ag.role && ag.role.toLowerCase().includes("security"))) && Math.hypot(ag.x - this.zones.securityVault.x, ag.y - (this.zones.securityVault.y + 35)) < 85) {
       return "Security Operations";
     }
-    if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 30), ag.y - (this.zones.glassBoard.y + 35)) < 60) {
+    if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 40), ag.y - (this.zones.glassBoard.y + 35)) < 85) {
       return "Strategy Roadmap";
     }
-    if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 60) {
+    if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 85) {
       return "Knowledge Archive";
     }
     if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < this.zones.desks.length) {
@@ -497,25 +545,30 @@ class OfficeSimulator {
 
     if (roleKey === "dispatcher") {
       deskIdx = null;
-      initialX = 980;
-      initialY = 342;
+      const coords = this.getStationCoordinates("postOffice");
+      initialX = coords.x;
+      initialY = coords.y;
     } else if (roleKey === "planner") {
       deskIdx = 0;
-      initialX = this.zones.glassBoard.x + 30;
-      initialY = this.zones.glassBoard.y + 35;
+      const coords = this.getStationCoordinates("glassBoard");
+      initialX = coords.x;
+      initialY = coords.y;
       this.zones.desks[0].occupiedBy = 0;
     } else if (roleKey === "security") {
       deskIdx = null;
-      initialX = this.zones.securityVault.x;
-      initialY = this.zones.securityVault.y + 35;
+      const coords = this.getStationCoordinates("securityVault");
+      initialX = coords.x;
+      initialY = coords.y;
     } else if (roleKey === "devops" || roleKey === "tester") {
       deskIdx = null;
-      initialX = 980;
-      initialY = 165;
+      const coords = this.getStationCoordinates("serverLab");
+      initialX = coords.x;
+      initialY = coords.y;
     } else if (roleKey === "researcher") {
       deskIdx = null;
-      initialX = this.zones.library.x + 20;
-      initialY = this.zones.library.y + 35;
+      const coords = this.getStationCoordinates("library");
+      initialX = coords.x;
+      initialY = coords.y;
     } else {
       let openDesk = this.zones.desks.findIndex((d, i) => i > 0 && d.occupiedBy === null);
       if (openDesk !== -1) {
@@ -594,20 +647,25 @@ class OfficeSimulator {
     ag.speech = prompt ? (prompt.length > 45 ? prompt.slice(0, 42) + "..." : prompt) : `Executing ${name}...`;
 
     if (roleKey === "security") {
-      ag.targetX = this.zones.securityVault.x;
-      ag.targetY = this.zones.securityVault.y + 35;
+      const coords = this.getStationCoordinates("securityVault", ag.id);
+      ag.targetX = coords.x;
+      ag.targetY = coords.y;
     } else if (roleKey === "devops" || roleKey === "tester") {
-      ag.targetX = 980;
-      ag.targetY = 165;
+      const coords = this.getStationCoordinates("serverLab", ag.id);
+      ag.targetX = coords.x;
+      ag.targetY = coords.y;
     } else if (roleKey === "dispatcher") {
-      ag.targetX = 980;
-      ag.targetY = 342;
+      const coords = this.getStationCoordinates("postOffice", ag.id);
+      ag.targetX = coords.x;
+      ag.targetY = coords.y;
     } else if (roleKey === "researcher") {
-      ag.targetX = this.zones.library.x + 20;
-      ag.targetY = this.zones.library.y + 35;
+      const coords = this.getStationCoordinates("library", ag.id);
+      ag.targetX = coords.x;
+      ag.targetY = coords.y;
     } else if (roleKey === "planner") {
-      ag.targetX = this.zones.glassBoard.x + 30;
-      ag.targetY = this.zones.glassBoard.y + 35;
+      const coords = this.getStationCoordinates("glassBoard", ag.id);
+      ag.targetX = coords.x;
+      ag.targetY = coords.y;
     } else if (ag.deskIndex !== null && ag.deskIndex !== undefined && this.zones.desks[ag.deskIndex]) {
       ag.targetX = this.zones.desks[ag.deskIndex].x;
       ag.targetY = this.zones.desks[ag.deskIndex].y - 14;
@@ -713,15 +771,17 @@ class OfficeSimulator {
       const planner = this.getOrCreateSpecialist("planner", "Lead Architect");
       planner.speech = "Planning architecture & milestones...";
       planner.currentTask = "Designing Roadmap";
-      planner.targetX = this.zones.glassBoard.x + 30;
-      planner.targetY = this.zones.glassBoard.y + 35;
+      const coords = this.getStationCoordinates("glassBoard", planner.id);
+      planner.targetX = coords.x;
+      planner.targetY = coords.y;
       this.selectAgent(planner.id);
     } else if (commandName === "/research" || commandName === "research") {
       const researcher = this.getOrCreateSpecialist("researcher", "Research Analyst");
       researcher.speech = "Investigating documentation...";
       researcher.currentTask = "Knowledge Research";
-      researcher.targetX = this.zones.library.x + 20;
-      researcher.targetY = this.zones.library.y + 35;
+      const coords = this.getStationCoordinates("library", researcher.id);
+      researcher.targetX = coords.x;
+      researcher.targetY = coords.y;
       this.selectAgent(researcher.id);
     }
     this.updateRosterUI();
@@ -761,8 +821,9 @@ class OfficeSimulator {
       planner.currentTask = summary || "Roadmap Update";
       planner.state = "working";
       planner.isPaused = false;
-      planner.targetX = this.zones.glassBoard.x + 30;
-      planner.targetY = this.zones.glassBoard.y + 35;
+      const coords = this.getStationCoordinates("glassBoard", planner.id);
+      planner.targetX = coords.x;
+      planner.targetY = coords.y;
       if (args.steps) this.setMissionSteps(args.steps);
       target = planner;
     } else if (toolName === "update_focus") {
@@ -804,8 +865,9 @@ class OfficeSimulator {
         dispatcher.currentTask = summary || (isPush ? "Git Remote Push" : (isCommit ? "Git Commit" : (isAdd ? "Git Stage Add" : "Git Status")));
         dispatcher.state = isPush ? "shipping" : "working";
         dispatcher.isPaused = false;
-        dispatcher.targetX = 980;
-        dispatcher.targetY = 342;
+        const coords = this.getStationCoordinates("postOffice", dispatcher.id);
+        dispatcher.targetX = coords.x;
+        dispatcher.targetY = coords.y;
         if (isPush) this.uplinkPulse = 1.0;
         target = dispatcher;
       } else if (isTestCmd || cmdLower.includes("docker") || cmdLower.includes("container")) {
@@ -814,8 +876,9 @@ class OfficeSimulator {
         devops.currentTask = summary || (isTestCmd ? "Test Suite QA" : "Container Ops");
         devops.state = "working";
         devops.isPaused = false;
-        devops.targetX = 980;
-        devops.targetY = 165;
+        const coords = this.getStationCoordinates("serverLab", devops.id);
+        devops.targetX = coords.x;
+        devops.targetY = coords.y;
         target = devops;
       } else if (isSearchCmd) {
         const researcher = this.getOrCreateSpecialist("researcher", "Research Analyst");
@@ -823,8 +886,9 @@ class OfficeSimulator {
         researcher.currentTask = summary || "Codebase Search";
         researcher.state = "working";
         researcher.isPaused = false;
-        researcher.targetX = this.zones.library.x + 20;
-        researcher.targetY = this.zones.library.y + 35;
+        const coords = this.getStationCoordinates("library", researcher.id);
+        researcher.targetX = coords.x;
+        researcher.targetY = coords.y;
         target = researcher;
       } else {
         const devops = this.getOrCreateSpecialist("devops", "DevOps & QA");
@@ -855,8 +919,9 @@ class OfficeSimulator {
       researcher.currentTask = summary || (fname ? `Read ${fname}` : "Docs & Research");
       researcher.state = "working";
       researcher.isPaused = false;
-      researcher.targetX = this.zones.library.x + 20;
-      researcher.targetY = this.zones.library.y + 35;
+      const coords = this.getStationCoordinates("library", researcher.id);
+      researcher.targetX = coords.x;
+      researcher.targetY = coords.y;
       target = researcher;
     } else if (toolName === "done") {
       this.setAllIdle();
@@ -2691,8 +2756,26 @@ class OfficeSimulator {
     const tw = this.ctx.measureText(txt).width;
     const textOffset = isError ? 22 : 9;
     const bw = Math.max(tw + textOffset + 14, 90);
+    const bh = 22;
     const bx = Math.max(16, Math.min(px - bw / 2, this.width - bw - 16));
-    const by = py - 46;
+    let by = py - 46;
+
+    // Smart vertical de-overlap with already rendered speech bubbles
+    if (this.renderedBubbles && this.renderedBubbles.length > 0) {
+      for (let i = 0; i < this.renderedBubbles.length; i++) {
+        const eb = this.renderedBubbles[i];
+        const xOverlap = (bx < eb.x + eb.w + 6) && (bx + bw + 6 > eb.x);
+        const yOverlap = (by < eb.y + eb.h + 6) && (by + bh + 6 > eb.y);
+        if (xOverlap && yOverlap) {
+          by = eb.y - bh - 8;
+        }
+      }
+    }
+    if (by < 18) by = 18;
+
+    if (this.renderedBubbles) {
+      this.renderedBubbles.push({ x: bx, y: by, w: bw, h: bh });
+    }
 
     // Bubble Background & Border (Crimson alert on failure, theme-adaptive otherwise)
     this.ctx.fillStyle = isError ? (isNight ? 'rgba(239, 68, 68, 0.22)' : '#fef2f2') : palette.bubbleBg;
@@ -2885,6 +2968,7 @@ class OfficeSimulator {
 
   animate() {
     this.tickCount++;
+    this.renderedBubbles = [];
 
     // Countdown error animation timers & spawn fluster particles
     this.agents.forEach(ag => {
@@ -2948,8 +3032,8 @@ class OfficeSimulator {
         ag.y = ag.targetY;
         if (ag.state === "walking" || ag.state === "shipping") {
           const atLounge = Math.hypot(ag.x - this.zones.espressoBar.x, ag.y - this.zones.espressoBar.y) < 140;
-          const atPostOffice = Math.hypot(ag.x - 980, ag.y - 345) < 40;
-          const atServerLab = Math.hypot(ag.x - 980, ag.y - 165) < 40;
+          const atPostOffice = Math.hypot(ag.x - 960, ag.y - 350) < 70;
+          const atServerLab = Math.hypot(ag.x - 960, ag.y - 180) < 70;
 
           if (ag.isRestingGoal || this.isIdleTask(ag.currentTask) || atLounge) {
             ag.state = "coffee";
@@ -2969,6 +3053,42 @@ class OfficeSimulator {
         }
       }
     });
+
+    // Pairwise Soft Collision Repulsion (Prevents agents overlapping while walking or at stations)
+    const minAgentDist = 34;
+    for (let i = 0; i < this.agents.length; i++) {
+      for (let j = i + 1; j < this.agents.length; j++) {
+        const a1 = this.agents[i];
+        const a2 = this.agents[j];
+
+        // Do not push agents apart if both are seated at their assigned desks
+        const a1Seated = this.zones.desks.some(d => Math.hypot(a1.x - d.x, a1.y - (d.y - 14)) < 8);
+        const a2Seated = this.zones.desks.some(d => Math.hypot(a2.x - d.x, a2.y - (d.y - 14)) < 8);
+        if (a1Seated && a2Seated) continue;
+
+        const cdx = a2.x - a1.x;
+        const cdy = a2.y - a1.y;
+        const curDist = Math.hypot(cdx, cdy);
+
+        if (curDist < minAgentDist && curDist > 0.001) {
+          const overlap = (minAgentDist - curDist) * 0.5;
+          const nx = cdx / curDist;
+          const ny = cdy / curDist;
+
+          if (!a1Seated) {
+            a1.x -= nx * overlap * 0.15;
+            a1.y -= ny * overlap * 0.15;
+          }
+          if (!a2Seated) {
+            a2.x += nx * overlap * 0.15;
+            a2.y += ny * overlap * 0.15;
+          }
+        } else if (curDist <= 0.001) {
+          if (!a1Seated) a1.x -= 2;
+          if (!a2Seated) a2.x += 2;
+        }
+      }
+    }
 
     // 8. Draw Workstations with Authentic Ergonomic Layering
     // Layer A: Ergonomic Chairs behind all desks
