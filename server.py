@@ -22,32 +22,89 @@ from socketserver import ThreadingMixIn
 # Environment & Path Resolution
 PORT = int(os.environ.get("PORT", 7777))
 
-def resolve_antigravity_paths():
-    """Detects Antigravity data & config paths across Docker, WSL, and Windows."""
+def resolve_antigravity_paths(custom_data=None, custom_config=None):
+    """Detects Antigravity data & config paths across CLI args, Docker, WSL, Linux, macOS, and Windows."""
+    # 0. Check explicit custom arguments
+    if custom_data and os.path.exists(custom_data):
+        cfg = Path(custom_config) if (custom_config and os.path.exists(custom_config)) else Path(custom_data).parent / "config"
+        return Path(custom_data), cfg
+
     # 1. Check explicit environment overrides
     env_data = os.environ.get("ANTIGRAVITY_DATA_DIR")
     env_config = os.environ.get("ANTIGRAVITY_CONFIG_DIR")
     if env_data and os.path.exists(env_data):
-        return Path(env_data), Path(env_config or "/data/config")
+        cfg = Path(env_config) if (env_config and os.path.exists(env_config)) else Path(env_data).parent / "config"
+        return Path(env_data), cfg
 
     # 2. Check Docker container mounts
     if os.path.exists("/data/antigravity"):
         return Path("/data/antigravity"), Path("/data/config")
 
-    # 3. Check WSL Linux mounts
-    home = Path.home()
-    wsl_win_data = Path("/mnt/c/Users/yosyf/.gemini/antigravity")
-    wsl_win_config = Path("/mnt/c/Users/yosyf/.gemini/config")
-    if wsl_win_data.exists():
-        return wsl_win_data, wsl_win_config
+    # 3. Collect all viable candidate directories (Native home, Windows host via WSL, mounted drives)
+    candidates = []
 
-    # 4. Check native user home (Linux or Windows)
+    # 3a. Native user home (Windows, macOS, or native Linux)
+    home = Path.home()
     native_data = home / ".gemini" / "antigravity"
     native_config = home / ".gemini" / "config"
     if native_data.exists():
-        return native_data, native_config
+        candidates.append((native_data, native_config))
 
-    return wsl_win_data, wsl_win_config
+    # 3b. WSL environment: check Windows USERPROFILE
+    try:
+        import subprocess
+        res = subprocess.run(["cmd.exe", "/c", "echo %USERPROFILE%"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            win_profile = res.stdout.strip().replace("\r", "")
+            res_wsl = subprocess.run(["wslpath", win_profile], capture_output=True, text=True, timeout=2)
+            if res_wsl.returncode == 0 and res_wsl.stdout.strip():
+                wsl_home = Path(res_wsl.stdout.strip())
+                wsl_data = wsl_home / ".gemini" / "antigravity"
+                wsl_config = wsl_home / ".gemini" / "config"
+                if wsl_data.exists():
+                    candidates.append((wsl_data, wsl_config))
+    except Exception:
+        pass
+
+    # 3c. WSL environment: glob across Windows user mounts (/mnt/?/Users/*/.gemini/antigravity)
+    import glob
+    for cand_str in glob.glob("/mnt/?/Users/*/.gemini/antigravity"):
+        cand_p = Path(cand_str)
+        if cand_p.is_dir():
+            candidates.append((cand_p, cand_p.parent / "config"))
+
+    # 4. If candidates found, select the one with the freshest conversation activity
+    if candidates:
+        def get_freshness(pair):
+            data_p = pair[0]
+            db = data_p / "conversation_summaries.db"
+            if db.exists():
+                try:
+                    return db.stat().st_mtime
+                except Exception:
+                    pass
+            brain = data_p / "brain"
+            if brain.exists():
+                try:
+                    return brain.stat().st_mtime
+                except Exception:
+                    pass
+            return 0
+
+        # Deduplicate while preserving order
+        unique_candidates = []
+        seen = set()
+        for c in candidates:
+            resolved_str = str(c[0].resolve())
+            if resolved_str not in seen:
+                seen.add(resolved_str)
+                unique_candidates.append(c)
+
+        unique_candidates.sort(key=get_freshness, reverse=True)
+        return unique_candidates[0]
+
+    # 5. Default fallback to native home path
+    return native_data, native_config
 
 DATA_DIR, CONFIG_DIR = resolve_antigravity_paths()
 PUBLIC_DIR = Path(__file__).resolve().parent / "public"
@@ -390,9 +447,24 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(active or {}).encode("utf-8"))
             return
 
+        # Health Check
+        if path == "/health":
+            self.send_response(200)
+            self.send_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            health_info = {
+                "status": "ok",
+                "version": "1.0.0",
+                "data_dir": str(DATA_DIR),
+                "config_dir": str(CONFIG_DIR)
+            }
+            self.wfile.write(json.dumps(health_info).encode("utf-8"))
+            return
+
         # 3. API: Get all active / concurrent sessions (multi-session live detection)
         if path == "/api/sessions/active":
-            exclude_conv = query.get("exclude_conv_id", ["7f270c91-8b98-45aa-9bfd-311aa2a47b72"])[0]
+            exclude_conv = query.get("exclude_conv_id", [None])[0]
             sessions = find_all_active_sessions(exclude_conv=exclude_conv)
             self.send_response(200)
             self.send_cors_headers()
@@ -586,13 +658,37 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
 
 
 def run():
-    server_address = ("0.0.0.0", PORT)
+    global PORT, DATA_DIR, CONFIG_DIR
+    import argparse
+    parser = argparse.ArgumentParser(description="Antigravity Autonomous Studio Visualizer")
+    parser.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", 7777)), help="Port to listen on (default: 7777)")
+    parser.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"), help="Host address to bind (default: 0.0.0.0)")
+    parser.add_argument("--data-dir", default=None, help="Explicit Antigravity data directory path")
+    parser.add_argument("--config-dir", default=None, help="Explicit Antigravity config directory path")
+    parser.add_argument("--open-browser", action="store_true", help="Automatically open visualizer in default browser")
+    args, _ = parser.parse_known_args()
+
+    PORT = args.port
+    if args.data_dir:
+        DATA_DIR, CONFIG_DIR = resolve_antigravity_paths(args.data_dir, args.config_dir)
+
+    server_address = (args.host, PORT)
     httpd = ThreadedHTTPServer(server_address, OfficeRequestHandler)
     print(f"\n=======================================================")
-    print(f"🚀 Antigravity Virtual Office Visualizer Live!")
+    print(f"🚀 Antigravity Autonomous Studio Live!")
+    print(f"📂 Data Dir:             {DATA_DIR}")
+    print(f"⚙️  Config Dir:           {CONFIG_DIR}")
     print(f"🌐 Local Browser URL:    http://localhost:{PORT}")
     print(f"📊 Auto-Follow Active:   http://localhost:{PORT}/?auto=true")
     print(f"=======================================================\n")
+
+    if args.open_browser:
+        import webbrowser
+        try:
+            webbrowser.open(f"http://localhost:{PORT}/?auto=true")
+        except Exception:
+            pass
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

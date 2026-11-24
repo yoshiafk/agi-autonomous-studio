@@ -21,19 +21,53 @@ An animated, retro 2D pixel-art office simulator that visualizes **Google Antigr
 
 ## 🚀 Quick Start
 
-### Option A: Run with Docker (Recommended)
+### Option A: Install as an Antigravity Plugin (Recommended)
+Clone directly into your Antigravity plugins directory to enable the `/studio` chat command:
+
 ```bash
-# In Ubuntu WSL:
-cd /mnt/c/Users/yosyf/.gemini/antigravity/scratch/antigravity-office-visualizer
+# macOS / Linux / WSL
+git clone https://github.com/yoshiafk/agi-autonomous-studio.git ~/.gemini/config/plugins/antigravity-studio
+
+# Windows (PowerShell)
+git clone https://github.com/yoshiafk/agi-autonomous-studio.git "$env:USERPROFILE\.gemini\config\plugins\antigravity-studio"
+```
+
+Once installed, simply type `/studio` in any Antigravity conversation or run `./start.sh` (or `start.bat` on Windows).
+
+---
+
+### Option B: 1-Line Universal Installer
+
+**Linux / macOS / WSL**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/yoshiafk/agi-autonomous-studio/master/install.sh | bash
+```
+
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/yoshiafk/agi-autonomous-studio/master/install.ps1 | iex
+```
+
+---
+
+### Option C: Run via Docker Compose
+
+```bash
+git clone https://github.com/yoshiafk/agi-autonomous-studio.git
+cd agi-autonomous-studio
 docker compose up -d
 ```
-Access in your browser:
-👉 **[http://localhost:7777](http://localhost:7777)**
 
-### Option B: Run Directly on Host (Python 3)
+---
+
+### Option D: Native Python 3 (Zero Pip Dependencies)
+
+`server.py` relies solely on standard Python libraries (`http.server`, `sqlite3`, `pathlib`, `json`).
+
 ```bash
-cd /mnt/c/Users/yosyf/.gemini/antigravity/scratch/antigravity-office-visualizer
-python3 server.py
+git clone https://github.com/yoshiafk/agi-autonomous-studio.git
+cd agi-autonomous-studio
+python3 server.py --open-browser
 ```
 
 ---

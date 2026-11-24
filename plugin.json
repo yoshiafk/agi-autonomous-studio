@@ -1,0 +1,15 @@
+{
+  "name": "antigravity-studio",
+  "displayName": "Antigravity Autonomous Studio",
+  "description": "Live 2D virtual office visualizer with real-time agent telemetry, multi-session auto-follow, 8-bit chiptune audio, and instant state hydration.",
+  "version": "1.0.0",
+  "author": "Yosafat (yoshiafk)",
+  "homepage": "https://github.com/yoshiafk/agi-autonomous-studio",
+  "repository": "https://github.com/yoshiafk/agi-autonomous-studio",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Launch Antigravity Studio visualizer",
+    "Check studio agent activity and telemetry",
+    "Open autonomous office dashboard"
+  ]
+}
