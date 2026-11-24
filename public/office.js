@@ -1660,37 +1660,75 @@ class OfficeSimulator {
     this.ctx.font = 'bold 7px sans-serif';
     this.ctx.fillText("MAIN", x + 19, y - ph / 2 + 14);
 
-    // 6. Directional Satellite Uplink Dish on Wall
-    const dishX = x + pw / 2 - 10;
-    const dishY = y - ph / 2 - 26;
+    // 6. Directional Satellite Uplink Dish (Authentic Parabolic Vector Geometry)
+    const dishX = x + pw / 2 - 12;
+    const dishY = y - ph / 2 - 18;
+    const isNight = (this.lightingMode === 'night');
 
-    this.ctx.strokeStyle = '#0891b2';
-    this.ctx.lineWidth = 2.5;
+    // Vertical mounting pole bolted to counter
+    this.ctx.fillStyle = isNight ? '#334155' : '#64748b';
+    this.ctx.fillRect(dishX - 2.5, dishY + 2, 5, 14);
+
+    // Swivel tripod bracket arm
+    this.ctx.strokeStyle = isNight ? '#475569' : '#94a3b8';
+    this.ctx.lineWidth = 2;
     this.ctx.beginPath();
-    this.ctx.arc(dishX, dishY, 14, -Math.PI * 0.7, Math.PI * 0.2);
+    this.ctx.moveTo(dishX, dishY + 6);
+    this.ctx.lineTo(dishX - 6, dishY - 2);
     this.ctx.stroke();
 
-    this.ctx.fillStyle = '#64748b';
-    this.ctx.fillRect(dishX - 2, dishY - 14, 4, 16);
-    this.ctx.fillStyle = '#06b6d4';
+    // Solid Parabolic Reflector Dish (Angled up-left towards sky at 35 degrees)
+    this.ctx.save();
+    this.ctx.translate(dishX - 6, dishY - 2);
+    this.ctx.rotate(-Math.PI * 0.22);
+
+    // Outer Dish Shell / Lip
+    this.ctx.fillStyle = isNight ? '#0b1320' : '#e2e8f0';
+    this.ctx.strokeStyle = '#0891b2';
+    this.ctx.lineWidth = 1.5;
     this.ctx.beginPath();
-    this.ctx.arc(dishX, dishY - 14, 3.5, 0, Math.PI * 2);
+    this.ctx.ellipse(0, 0, 16, 8, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Inner Dish Cavity (Convex parabolic depth)
+    this.ctx.fillStyle = isNight ? '#070c16' : '#f8fafc';
+    this.ctx.beginPath();
+    this.ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
+    // Central Feedhorn Probe (LNB receiver arm)
+    this.ctx.strokeStyle = '#06b6d4';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, 0);
+    this.ctx.lineTo(0, -11);
+    this.ctx.stroke();
+
+    // Feedhorn Receiver Cap
+    this.ctx.fillStyle = '#38bdf8';
+    this.ctx.beginPath();
+    this.ctx.arc(0, -11, 2.8, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.restore();
+
     // Pulsing Satellite Uplink Radio Waves when pushing to remote
+    const probeX = dishX - 12;
+    const probeY = dishY - 11;
     if (this.uplinkPulse > 0.05) {
       this.ctx.strokeStyle = `rgba(6, 182, 212, ${this.uplinkPulse})`;
-      this.ctx.lineWidth = 2;
+      this.ctx.lineWidth = 1.8;
       const waveOffset = (this.tickCount * 0.8) % 12;
-      for (let r = 16 + waveOffset; r <= 42; r += 10) {
+      for (let r = 10 + waveOffset; r <= 36; r += 9) {
         this.ctx.beginPath();
-        this.ctx.arc(dishX, dishY - 14, r, -Math.PI * 0.8, -Math.PI * 0.2);
+        this.ctx.arc(probeX, probeY, r, -Math.PI * 0.95, -Math.PI * 0.45);
         this.ctx.stroke();
       }
       this.uplinkPulse -= 0.008;
 
       if ((this.tickCount % 50 === 0) && this.spawnParticle) {
-        this.spawnParticle(dishX + 4, dishY - 26, 'stamp', 'PUSHED', '#06b6d4');
+        this.spawnParticle(probeX - 4, probeY - 16, 'stamp', 'PUSHED', '#06b6d4');
       }
 
       if ((this.tickCount % 42 === 0) && window.chiptuneAudio) {
