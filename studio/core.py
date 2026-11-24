@@ -5,6 +5,7 @@ real-time secret redaction, and keep-alive SSE streams.
 """
 
 import os
+import re
 import sys
 import json
 import time
@@ -381,26 +382,68 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
                 last_line_idx = len(all_lines)
 
                 recent_raw = []
+                latest_user_request = None
+                latest_turn_saw_user_input = False
+
                 for line in reversed(all_lines):
                     line_str = line.strip()
                     if not line_str:
                         continue
                     try:
                         step_data = json.loads(line_str)
-                        if not initial_state["focus"] and step_data.get("tool_calls"):
+                        st_type = step_data.get("type")
+
+                        # Track most recent user input to identify current turn boundary
+                        if st_type == "USER_INPUT" and not latest_user_request:
+                            raw_content = step_data.get("content") or ""
+                            clean_prompt = re.sub(r"<[^>]+>", "", raw_content).strip()
+                            clean_prompt = clean_prompt.split("\n")[0].strip()
+                            if len(clean_prompt) > 80:
+                                clean_prompt = clean_prompt[:77] + "..."
+                            if clean_prompt:
+                                latest_user_request = clean_prompt
+                                latest_turn_saw_user_input = True
+
+                        if step_data.get("tool_calls"):
                             for tc in step_data["tool_calls"]:
-                                if tc.get("name") == "update_focus" and tc.get("args", {}).get("focus"):
-                                    initial_state["focus"] = tc["args"]["focus"]
-                        if not initial_state["steps"] and step_data.get("tool_calls"):
-                            for tc in step_data["tool_calls"]:
-                                if tc.get("name") == "update_steps" and tc.get("args", {}).get("steps"):
-                                    initial_state["steps"] = tc["args"]["steps"]
+                                tc_name = tc.get("name")
+                                tc_args = tc.get("args") or {}
+
+                                if not initial_state["focus"] and tc_name == "update_focus" and tc_args.get("focus"):
+                                    initial_state["focus"] = tc_args["focus"]
+
+                                if not initial_state["steps"] and tc_name == "update_steps" and tc_args.get("steps"):
+                                    steps_candidate = tc_args["steps"]
+                                    if isinstance(steps_candidate, str):
+                                        try:
+                                            steps_candidate = json.loads(steps_candidate)
+                                        except Exception:
+                                            steps_candidate = []
+
+                                    # Prevent restoring stale completed roadmap from an earlier task
+                                    is_all_done = (
+                                        isinstance(steps_candidate, list) and
+                                        len(steps_candidate) > 0 and
+                                        all(s.get("status") == "done" for s in steps_candidate)
+                                    )
+                                    if latest_turn_saw_user_input and is_all_done:
+                                        # Stale completed roadmap from previous task - do not resurrect
+                                        pass
+                                    else:
+                                        initial_state["steps"] = steps_candidate
+
                         if len(recent_raw) < 25:
                             recent_raw.append(step_data)
+
                         if initial_state["focus"] and initial_state["steps"] and len(recent_raw) >= 25:
                             break
                     except Exception:
                         pass
+
+                # Dynamic fallback: if no explicit update_focus yet in active turn, use latest user request
+                if not initial_state["focus"] and latest_user_request:
+                    initial_state["focus"] = latest_user_request
+
                 initial_state["recent_steps"] = list(reversed(recent_raw))
             except Exception as e:
                 print(f"[!] Fast hydration read error: {e}", file=sys.stderr)
@@ -630,14 +673,14 @@ def stop_daemon(host: str = "127.0.0.1", port: int = 7777) -> int:
         except Exception:
             pass
 
-    print("[✓] Antigravity Studio stopped successfully.")
+    print("[+] Antigravity Studio stopped successfully.")
     return 0
 
 def start_daemon(host: str, port: int, open_browser: bool, data_dir: str = None, config_dir: str = None) -> int:
     """Spawns Antigravity Studio as a detached background daemon."""
     healthy = is_server_healthy(host, port)
     if healthy:
-        print(f"[✓] Antigravity Studio is already active at http://{host}:{port}/?auto=true")
+        print(f"[+] Antigravity Studio is already active at http://{host}:{port}/?auto=true")
         if open_browser:
             import webbrowser
             try:
@@ -687,7 +730,7 @@ def start_daemon(host: str, port: int, open_browser: bool, data_dir: str = None,
     for _ in range(30):
         time.sleep(0.1)
         if is_server_healthy(host, port):
-            print(f"[✓] Antigravity Studio started in background (PID {proc.pid})")
+            print(f"[+] Antigravity Studio started in background (PID {proc.pid})")
             print(f"    Visualizer URL: http://{host}:{port}/?auto=true")
             if open_browser:
                 import webbrowser

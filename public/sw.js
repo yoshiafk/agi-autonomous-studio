@@ -1,5 +1,5 @@
 // Antigravity Autonomous Studio - Service Worker
-const CACHE_NAME = 'agi-studio-cache-v4';
+const CACHE_NAME = 'agi-studio-cache-v5';
 const STATIC_ASSETS = [
   '/',
   '/?auto=true',
@@ -61,6 +61,22 @@ self.addEventListener('fetch', (e) => {
 
   // Network-only for live API and SSE telemetry endpoints
   if (url.pathname.startsWith('/api/') || url.pathname === '/health') {
+    return;
+  }
+
+  // Network-first for navigation requests to ensure latest HTML and assets
+  if (e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    e.respondWith(
+      fetch(e.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const resClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(e.request))
+    );
     return;
   }
 

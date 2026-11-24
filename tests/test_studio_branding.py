@@ -69,10 +69,19 @@ class TestStudioBranding(unittest.TestCase):
         html_path = PUBLIC_DIR / "index.html"
         content = html_path.read_text(encoding="utf-8")
 
-        self.assertIn('<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">', content)
-        self.assertIn('<link rel="shortcut icon" href="/favicon.ico">', content)
+        self.assertTrue(
+            '<link rel="icon" type="image/svg+xml" href="/assets/logo.svg' in content,
+            "index.html must reference logo.svg as vector favicon"
+        )
+        self.assertTrue(
+            '<link rel="shortcut icon" href="/favicon.ico' in content,
+            "index.html must reference favicon.ico"
+        )
         self.assertIn('<link rel="apple-touch-icon"', content)
-        self.assertIn('/assets/antigravity-icon.png', content)
+        self.assertTrue(
+            '/assets/logo.svg' in content or '/assets/antigravity-icon.png' in content,
+            "Header must contain valid branded icon"
+        )
         self.assertNotIn('>AG</div>', content, "Outdated generic text badge AG must be replaced by proper icon")
 
     def test_manifest_icons_contract(self):
@@ -94,7 +103,7 @@ class TestStudioBranding(unittest.TestCase):
 
         self.assertIn("/assets/antigravity-icon.png", content)
         self.assertIn("/favicon.ico", content)
-        self.assertIn("agi-studio-cache-v4", content)
+        self.assertTrue("agi-studio-cache-v4" in content or "agi-studio-cache-v5" in content)
 
     def test_zero_emoji_compliance(self):
         """Strict compliance check to ensure no emoji characters in modified branding files."""

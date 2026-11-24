@@ -149,14 +149,22 @@ def get_db_connection(data_dir: Path):
         return None
     try:
         clean_path = db_path.resolve().as_posix()
-        uri = f"file:///{clean_path.lstrip('/')}?mode=ro"
+        if clean_path.startswith('/'):
+            uri = f"file://{clean_path}?mode=ro"
+        else:
+            uri = f"file:///{clean_path}?mode=ro"
         conn = sqlite3.connect(uri, uri=True, timeout=5.0)
         conn.execute("PRAGMA query_only = ON;")
         conn.execute("PRAGMA busy_timeout = 3000;")
         return conn
     except Exception as e:
-        print(f"[!] SQLite connection error: {e}", file=sys.stderr)
-        return None
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=5.0)
+            conn.execute("PRAGMA query_only = ON;")
+            return conn
+        except Exception as e2:
+            print(f"[!] SQLite connection error: {e2}", file=sys.stderr)
+            return None
 
 def scan_projects(data_dir: Path, config_dir: Path) -> list:
     """Scans and groups all projects using in-memory manifest cache and database."""

@@ -23,6 +23,7 @@ let autoFollowEnabled = true;
 let totalStepsCount = 0;
 let lastKnownActive = null;
 let cachedMissionSteps = [];
+let cachedFocusText = "";
 const appUrlParams = new URLSearchParams(window.location.search);
 const excludeConvId = appUrlParams.get('exclude_conv_id') || "";
 let activeSessionsCache = [];
@@ -777,6 +778,7 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
   const nameEl = document.getElementById('active-project-name');
   const badgeEl = document.getElementById('active-project-badge');
   const focusBanner = document.getElementById('focus-banner-text');
+  const focusSub = document.getElementById('focus-banner-sub');
 
   if (nameEl) nameEl.textContent = projectName || "Workspace";
   if (badgeEl) {
@@ -788,8 +790,19 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
       badgeEl.textContent = "IDLE / READY";
     }
   }
-  if (focusBanner && sessionTitle) {
-    focusBanner.textContent = sessionTitle;
+
+  // Update secondary workspace breadcrumb without overwriting active focus text
+  if (focusSub) {
+    focusSub.textContent = `Workspace: ${projectName || 'Studio'}`;
+  }
+
+  // Only seed focus banner if it is currently empty or placeholder
+  if (focusBanner && (!focusBanner.textContent || focusBanner.textContent === "Awaiting agent activity...")) {
+    if (cachedFocusText) {
+      focusBanner.textContent = cachedFocusText;
+    } else if (sessionTitle) {
+      focusBanner.textContent = sessionTitle;
+    }
   }
 
   // Update Header Breadcrumb Switcher Trigger
@@ -942,6 +955,7 @@ function handleInitialState(data) {
     if (typeof cleanFocus === 'string') {
       cleanFocus = cleanFocus.replace(/^["']|["']$/g, '').trim();
     }
+    cachedFocusText = cleanFocus;
     const focusBanner = document.getElementById('focus-banner-text');
     if (focusBanner) focusBanner.textContent = cleanFocus;
     renderFocusCard(cleanFocus);
@@ -958,6 +972,7 @@ function handleInitialState(data) {
     renderRoadmapPipeline(stepsData);
     if (officeSim) officeSim.handleToolAction("update_steps", { steps: stepsData });
   } else {
+    cachedMissionSteps = [];
     renderRoadmapPipeline([]);
   }
 
@@ -1000,6 +1015,7 @@ function connectToEventStream(conversationId, isActive = true) {
 
   // 1. Reset metrics & step cache
   cachedMissionSteps = [];
+  cachedFocusText = "";
   totalStepsCount = 0;
   const counter = document.getElementById('step-counter');
   if (counter) counter.textContent = '0';
@@ -1113,9 +1129,38 @@ function handleStepEvent(step, isHydrate = false) {
     }
   }
 
-  // 1. Detect Commands (/plan, /research, /goal)
+  // 1. Detect Commands (/plan, /research, /goal) & User Prompts
   if (step.type === "USER_INPUT" && step.content) {
+    lastAgentActionTime = Date.now();
+    isConversationBusy = true;
+
+    // Clear stale completed roadmap from previous task so UI is clean for current sprint
+    if (cachedMissionSteps && Array.isArray(cachedMissionSteps) && cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done")) {
+      cachedMissionSteps = [];
+      renderRoadmapPipeline([]);
+    }
+
+    // Reactivate studio status badge
+    const activeBadge = document.getElementById('active-project-badge');
+    if (activeBadge) {
+      activeBadge.className = "status-pill status-working";
+      activeBadge.textContent = "WORKING";
+    }
+
     const raw = step.content;
+    let cleanPrompt = raw.replace(/<[^>]+>/g, '').trim();
+    cleanPrompt = cleanPrompt.split('\n')[0].trim();
+    if (cleanPrompt.length > 80) cleanPrompt = cleanPrompt.slice(0, 77) + '...';
+
+    if (cleanPrompt) {
+      cachedFocusText = cleanPrompt;
+      const focusBanner = document.getElementById('focus-banner-text');
+      if (focusBanner) focusBanner.textContent = cleanPrompt;
+      if (officeSim && typeof officeSim.handleToolAction === 'function') {
+        officeSim.handleToolAction("update_focus", { focus: cleanPrompt });
+      }
+    }
+
     const matchCmd = raw.match(/\/(plan|research|goal|learn|boost|compact)/i);
     if (matchCmd) {
       const cmdName = matchCmd[1].toLowerCase();
@@ -1140,7 +1185,7 @@ function handleStepEvent(step, isHydrate = false) {
     }
     const focusBanner = document.getElementById('focus-banner-text');
     if (focusBanner && focusBanner.textContent.includes("Idle & Ready")) {
-      focusBanner.textContent = "Executing Autonomous Project Workflow";
+      focusBanner.textContent = cachedFocusText || "Executing Autonomous Project Workflow";
     }
 
     step.tool_calls.forEach(tc => {
@@ -1174,6 +1219,7 @@ function handleStepEvent(step, isHydrate = false) {
         if (typeof cleanFocus === 'string') {
           cleanFocus = cleanFocus.replace(/^["']|["']$/g, '').trim();
         }
+        cachedFocusText = cleanFocus;
         const focusBanner = document.getElementById('focus-banner-text');
         if (focusBanner) focusBanner.textContent = cleanFocus;
         renderFocusCard(cleanFocus);
