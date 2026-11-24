@@ -16,6 +16,10 @@ const appUrlParams = new URLSearchParams(window.location.search);
 const excludeConvId = appUrlParams.get('exclude_conv_id') || "";
 let activeSessionsCache = [];
 let projectsListCache = [];
+let currentFeedFilter = 'all';
+let currentArtifactsCache = [];
+let currentRawArtifactContent = '';
+let currentModalCopyText = '';
 
 document.addEventListener('DOMContentLoaded', () => {
   officeSim = new OfficeSimulator('officeCanvas');
@@ -136,6 +140,77 @@ function initUIEvents() {
   }
   if (demoBtn) demoBtn.addEventListener('click', runDemoSimulation);
 
+  // Artifacts Drawer
+  const openArtifactsBtn = document.getElementById('btn-open-artifacts');
+  const closeArtifactsBtn = document.getElementById('btn-close-artifacts');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  const copyArtifactBtn = document.getElementById('btn-copy-artifact');
+
+  if (openArtifactsBtn) {
+    openArtifactsBtn.addEventListener('click', () => toggleArtifactsDrawer(true));
+  }
+  if (closeArtifactsBtn) {
+    closeArtifactsBtn.addEventListener('click', () => toggleArtifactsDrawer(false));
+  }
+  if (drawerBackdrop) {
+    drawerBackdrop.addEventListener('click', () => toggleArtifactsDrawer(false));
+  }
+  if (copyArtifactBtn) {
+    copyArtifactBtn.addEventListener('click', () => {
+      if (currentRawArtifactContent) {
+        navigator.clipboard.writeText(currentRawArtifactContent);
+        showToast("Artifact markdown copied to clipboard!");
+      }
+    });
+  }
+
+  // CLI Resume Copy Button
+  const copyResumeBtn = document.getElementById('btn-copy-resume');
+  if (copyResumeBtn) {
+    copyResumeBtn.addEventListener('click', () => {
+      if (currentConversationId) {
+        const cmd = `agy -r ${currentConversationId}`;
+        navigator.clipboard.writeText(cmd);
+        showToast(`Copied: ${cmd}`);
+      } else {
+        showToast("No active conversation selected to resume");
+      }
+    });
+  }
+
+  // Diff & Inspector Modal
+  const closeModalBtn = document.getElementById('btn-close-modal');
+  const copyModalBtn = document.getElementById('btn-modal-copy');
+  const diffModal = document.getElementById('diff-modal');
+
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', closeDiffModal);
+  }
+  if (copyModalBtn) {
+    copyModalBtn.addEventListener('click', () => {
+      if (currentModalCopyText) {
+        navigator.clipboard.writeText(currentModalCopyText);
+        showToast("Copied content to clipboard!");
+      }
+    });
+  }
+  if (diffModal) {
+    diffModal.addEventListener('click', (e) => {
+      if (e.target === diffModal) closeDiffModal();
+    });
+  }
+
+  // Feed Category Filter Bar
+  const filterBar = document.getElementById('feed-filter-bar');
+  if (filterBar) {
+    filterBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-pill');
+      if (!btn) return;
+      const filter = btn.dataset.filter || 'all';
+      setFeedFilter(filter);
+    });
+  }
+
   // Chiptune 8-bit Audio Toggle
   if (audioBtn) {
     const updateAudioUI = () => {
@@ -159,6 +234,258 @@ function initUIEvents() {
       }
     });
     updateAudioUI();
+  }
+}
+
+// --- Studio Toast Feedback ---
+function showToast(message) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'studio-toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(8px)';
+    setTimeout(() => toast.remove(), 220);
+  }, 2400);
+}
+
+// --- Diff & Output Inspector Modal ---
+function showDiffModal(title, contentHtml, copyText = '') {
+  const modal = document.getElementById('diff-modal');
+  const titleEl = document.getElementById('modal-title');
+  const bodyEl = document.getElementById('modal-body');
+  if (!modal || !bodyEl) return;
+
+  if (titleEl) titleEl.textContent = title;
+  bodyEl.innerHTML = contentHtml;
+  currentModalCopyText = copyText || '';
+  modal.classList.remove('hidden');
+}
+
+function closeDiffModal() {
+  const modal = document.getElementById('diff-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+// --- Artifacts & Plan Studio Drawer ---
+function toggleArtifactsDrawer(open = null) {
+  const drawer = document.getElementById('artifacts-drawer');
+  const backdrop = document.getElementById('drawer-backdrop');
+  if (!drawer) return;
+
+  const shouldOpen = (open !== null) ? open : !drawer.classList.contains('open');
+  if (shouldOpen) {
+    drawer.classList.add('open');
+    if (backdrop) backdrop.classList.remove('hidden');
+    if (currentConversationId) {
+      loadArtifactsList(currentConversationId);
+    }
+  } else {
+    drawer.classList.remove('open');
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+}
+
+async function loadArtifactsList(convId) {
+  const listEl = document.getElementById('drawer-artifacts-list');
+  const countBadge = document.getElementById('drawer-artifact-count');
+  const headerBadge = document.getElementById('artifacts-badge-count');
+  if (!convId || !listEl) return;
+
+  try {
+    const res = await fetch(`/api/artifacts?conversation_id=${encodeURIComponent(convId)}`);
+    if (!res.ok) return;
+    const artifacts = await res.json();
+    currentArtifactsCache = artifacts;
+
+    if (countBadge) countBadge.textContent = artifacts.length;
+    if (headerBadge) headerBadge.textContent = artifacts.length;
+
+    listEl.innerHTML = '';
+    if (artifacts.length === 0) {
+      listEl.innerHTML = '<div class="text-[11px] text-slate-400 italic p-2">No plans or artifacts generated yet.</div>';
+      return;
+    }
+
+    artifacts.forEach((art, idx) => {
+      const item = document.createElement('div');
+      item.className = `artifact-item ${idx === 0 ? 'active' : ''}`;
+      item.dataset.filename = art.name;
+
+      const kindColor = art.kind === 'plan' ? 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800'
+        : (art.kind === 'walkthrough' ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+        : 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700');
+
+      item.innerHTML = `
+        <div class="flex items-center gap-2 min-w-0 pr-2">
+          <span class="badge-kind ${kindColor}">${art.kind}</span>
+          <span class="font-medium truncate text-xs" style="color: var(--text-primary);">${art.title}</span>
+        </div>
+        <span class="text-[9.5px] font-mono text-[var(--text-muted)] shrink-0">${art.modified_iso ? art.modified_iso.slice(11, 16) : ''}</span>
+      `;
+
+      item.addEventListener('click', () => {
+        listEl.querySelectorAll('.artifact-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        loadArtifactContent(art.name);
+      });
+
+      listEl.appendChild(item);
+    });
+
+    if (artifacts.length > 0) {
+      loadArtifactContent(artifacts[0].name);
+    }
+  } catch (e) {
+    console.error("Failed to load artifacts list:", e);
+  }
+}
+
+async function loadArtifactContent(filename) {
+  const viewer = document.getElementById('artifact-markdown-viewer');
+  const titleEl = document.getElementById('active-artifact-title');
+  if (!viewer || !currentConversationId || !filename) return;
+
+  if (titleEl) titleEl.textContent = filename;
+  viewer.innerHTML = '<div class="text-[11px] text-slate-400 italic p-4 text-center">Loading document...</div>';
+
+  try {
+    const res = await fetch(`/api/artifacts/content?conversation_id=${encodeURIComponent(currentConversationId)}&file=${encodeURIComponent(filename)}`);
+    if (!res.ok) {
+      viewer.innerHTML = '<div class="text-[11px] text-rose-500 p-4">Failed to load artifact content.</div>';
+      return;
+    }
+    const md = await res.text();
+    currentRawArtifactContent = md;
+    viewer.innerHTML = renderSimpleMarkdown(md);
+  } catch (e) {
+    viewer.innerHTML = `<div class="text-[11px] text-rose-500 p-4">Error loading content: ${e.message}</div>`;
+  }
+}
+
+function renderSimpleMarkdown(md) {
+  if (!md) return '';
+  const lines = md.split('\n');
+  let html = '';
+  let inCode = false;
+  let codeBuffer = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith('```')) {
+      if (inCode) {
+        html += `<pre><code>${codeBuffer.map(DiffInspector.escapeHtml).join('\n')}</code></pre>`;
+        codeBuffer = [];
+        inCode = false;
+      } else {
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeBuffer.push(line);
+      continue;
+    }
+
+    if (line.startsWith('### ')) {
+      html += `<h3>${DiffInspector.escapeHtml(line.slice(4))}</h3>`;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      html += `<h2>${DiffInspector.escapeHtml(line.slice(3))}</h2>`;
+      continue;
+    }
+    if (line.startsWith('# ')) {
+      html += `<h1>${DiffInspector.escapeHtml(line.slice(2))}</h1>`;
+      continue;
+    }
+
+    if (line.startsWith('- [ ] ') || line.startsWith('* [ ] ')) {
+      html += `<div class="flex items-center gap-2 py-0.5"><span class="w-3.5 h-3.5 rounded border border-[var(--border-card)] shrink-0"></span><span>${DiffInspector.escapeHtml(line.slice(6))}</span></div>`;
+      continue;
+    }
+    if (line.startsWith('- [x] ') || line.startsWith('* [x] ')) {
+      html += `<div class="flex items-center gap-2 py-0.5"><span class="w-3.5 h-3.5 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="line-through opacity-70">${DiffInspector.escapeHtml(line.slice(6))}</span></div>`;
+      continue;
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      html += `<li class="ml-4 list-disc">${DiffInspector.escapeHtml(line.slice(2))}</li>`;
+      continue;
+    }
+
+    if (line.trim() === '---' || line.trim() === '***') {
+      html += `<hr class="my-3 border-[var(--border-card)]" />`;
+      continue;
+    }
+
+    if (!line.trim()) {
+      html += `<div class="h-2"></div>`;
+      continue;
+    }
+
+    let formatted = DiffInspector.escapeHtml(line);
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html += `<p class="leading-relaxed mb-1.5">${formatted}</p>`;
+  }
+
+  if (inCode && codeBuffer.length > 0) {
+    html += `<pre><code>${codeBuffer.map(DiffInspector.escapeHtml).join('\n')}</code></pre>`;
+  }
+
+  return html;
+}
+
+// --- Feed Filter & Token Health ---
+function setFeedFilter(filter) {
+  currentFeedFilter = filter;
+  const filterBar = document.getElementById('feed-filter-bar');
+  if (filterBar) {
+    filterBar.querySelectorAll('.filter-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+  }
+
+  const feed = document.getElementById('action-feed');
+  if (!feed) return;
+  const cards = feed.querySelectorAll('.feed-card');
+  cards.forEach(card => {
+    if (filter === 'all') {
+      card.classList.remove('hidden');
+    } else {
+      card.classList.toggle('hidden', card.dataset.category !== filter);
+    }
+  });
+}
+
+function updateTokenHealth(analytics) {
+  if (!analytics) return;
+  const tokenPillText = document.getElementById('token-stat-text');
+  if (!tokenPillText) return;
+
+  const currentCtx = analytics.estimated_context_tokens || analytics.total_input_tokens || 0;
+  const limit = analytics.context_window_limit || 200000;
+  const pct = analytics.context_window_percent || 0;
+
+  const fmt = (n) => n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`;
+  tokenPillText.textContent = `${fmt(currentCtx)} / ${fmt(limit)} (${pct}%)`;
+
+  const pill = document.getElementById('token-health-pill');
+  if (pill) {
+    pill.classList.remove('hidden');
+    const dot = pill.querySelector('span');
+    if (dot) {
+      if (pct > 85) dot.className = "w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse";
+      else if (pct > 65) dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse";
+      else dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
+    }
   }
 }
 
@@ -509,6 +836,19 @@ function handleInitialState(data) {
   const counter = document.getElementById('step-counter');
   if (counter) counter.textContent = totalStepsCount;
 
+  // 1b. Real-Time Analytics & Token Health
+  if (data.analytics) {
+    updateTokenHealth(data.analytics);
+  }
+
+  // 1c. Artifacts Count
+  if (data.artifacts_count !== undefined) {
+    const badge = document.getElementById('artifacts-badge-count');
+    const drawerBadge = document.getElementById('drawer-artifact-count');
+    if (badge) badge.textContent = data.artifacts_count;
+    if (drawerBadge) drawerBadge.textContent = data.artifacts_count;
+  }
+
   // 2. Focus
   if (data.focus) {
     let cleanFocus = data.focus;
@@ -732,7 +1072,9 @@ function handleStepEvent(step, isHydrate = false) {
       if (toolName === "write_file" || toolName === "edit_file") {
         let p = args.Path || "";
         if (typeof p === 'string') p = p.replace(/^["']|["']$/g, '').trim();
-        renderFileCard(p, toolName === "write_file" ? "Write File" : "Edit File");
+        let target = args.Target || null;
+        let replacement = args.Replacement || args.Content || null;
+        renderFileCard(p, toolName === "write_file" ? "Write File" : "Edit File", target, replacement);
         officeSim.handleToolAction(toolName, { Path: p }, subagent);
         return;
       }
@@ -793,30 +1135,67 @@ function renderCommandCard(command, summary) {
 
   const card = document.createElement('div');
   card.className = "feed-card flex flex-col gap-2";
+  card.dataset.category = 'cmd';
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
         <span class="${badgeClass}">${badgeText}</span>
         <span class="font-semibold text-xs truncate max-w-[220px]">${summary}</span>
       </div>
-      <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
+      <div class="flex items-center gap-2 shrink-0">
+        <button class="feed-action-btn copy-cmd-btn" title="Copy exact command">Copy</button>
+        <span class="text-[10px] text-slate-400 font-mono">${new Date().toLocaleTimeString()}</span>
+      </div>
     </div>
-    <div class="cmd-box truncate">
+    <div class="cmd-box truncate cursor-pointer hover:border-[var(--accent-primary)] transition" title="Click to view full command in inspector">
       $ ${command}
     </div>
   `;
+
+  const copyBtn = card.querySelector('.copy-cmd-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(command);
+      showToast("Copied terminal command to clipboard!");
+    });
+  }
+
+  const cmdBox = card.querySelector('.cmd-box');
+  if (cmdBox) {
+    cmdBox.addEventListener('click', () => {
+      if (window.DiffInspector) {
+        const outHtml = window.DiffInspector.renderCommandOutput(command, summary);
+        showDiffModal(`Command: ${summary}`, outHtml, command);
+      }
+    });
+  }
+
   appendCard(feed, card);
 }
 
-function renderFileCard(filePath, action) {
+function renderFileCard(filePath, action, target = null, replacement = null) {
   const feed = getFeedContainer();
   if (!feed) return;
 
   const fileName = filePath.split(/[\\/]/).pop() || "file";
   const ext = fileName.split('.').pop() || "";
+  const isEdit = (action.toLowerCase().includes("edit") || action.toLowerCase().includes("write"));
 
   const card = document.createElement('div');
   card.className = "feed-card flex flex-col gap-1.5";
+  card.dataset.category = isEdit ? 'edit' : 'read';
+
+  let inspectBtnHtml = "";
+  if (isEdit && (target || replacement)) {
+    inspectBtnHtml = `
+      <button class="feed-action-btn inspect-diff-btn flex items-center gap-1 shrink-0 ml-auto" title="Inspect unified code diff">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span>Inspect Diff</span>
+      </button>
+    `;
+  }
+
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
@@ -824,12 +1203,29 @@ function renderFileCard(filePath, action) {
         <span class="font-bold text-xs truncate max-w-[200px]" style="color: var(--text-primary);">${fileName}</span>
         <span class="feed-badge text-[9px] font-mono">${ext}</span>
       </div>
-      <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
+      <div class="flex items-center gap-2 shrink-0">
+        ${inspectBtnHtml}
+        <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
+      </div>
     </div>
     <div class="text-[11px] font-mono truncate" style="color: var(--text-muted);">
       ${filePath}
     </div>
   `;
+
+  if (isEdit && (target || replacement)) {
+    const btn = card.querySelector('.inspect-diff-btn');
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.DiffInspector) {
+          const diffHtml = window.DiffInspector.renderUnifiedDiff(target, replacement, filePath);
+          showDiffModal(`File Diff: ${fileName}`, diffHtml, replacement || target);
+        }
+      });
+    }
+  }
+
   appendCard(feed, card);
 }
 
@@ -839,6 +1235,7 @@ function renderResearchCard(toolName, query) {
 
   const card = document.createElement('div');
   card.className = "feed-card flex flex-col gap-1.5";
+  card.dataset.category = 'read';
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
@@ -861,6 +1258,7 @@ function renderThinkingCard(thoughtSnippet) {
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('activity', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
   card.className = "feed-card flex items-start gap-2";
+  card.dataset.category = 'other';
   card.innerHTML = `
     <span class="shrink-0 mt-0.5">${iconSvg}</span>
     <div class="truncate text-xs italic" style="color: var(--text-secondary);">
@@ -877,6 +1275,7 @@ function renderFocusCard(focusText) {
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('target', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
   card.className = "feed-card flex items-center justify-between gap-2";
+  card.dataset.category = 'other';
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate">
       <span class="shrink-0">${iconSvg}</span>
@@ -891,9 +1290,11 @@ function renderGenericCard(title, details, borderClass = "", iconName = "activit
   const feed = getFeedContainer();
   if (!feed) return;
 
+  const isSubagent = title.toLowerCase().includes("subagent") || title.toLowerCase().includes("swarm");
   const iconSvg = typeof renderIcon === 'function' ? renderIcon(iconName, "w-3.5 h-3.5 text-indigo-500 shrink-0") : "";
   const card = document.createElement('div');
   card.className = `feed-card flex items-center justify-between gap-2.5 ${borderClass}`;
+  card.dataset.category = isSubagent ? 'subagent' : 'other';
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate text-xs" style="color: var(--text-secondary);">
       ${iconSvg}
@@ -904,12 +1305,18 @@ function renderGenericCard(title, details, borderClass = "", iconName = "activit
     <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
   `;
   appendCard(feed, card);
+  return card;
 }
 
 function appendCard(feed, card) {
+  if (currentFeedFilter !== 'all') {
+    if (card.dataset.category !== currentFeedFilter) {
+      card.classList.add('hidden');
+    }
+  }
   feed.appendChild(card);
   feed.scrollTop = feed.scrollHeight;
-  while (feed.children.length > 40) {
+  while (feed.children.length > 50) {
     feed.removeChild(feed.firstChild);
   }
 }

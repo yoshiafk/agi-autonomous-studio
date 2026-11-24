@@ -340,3 +340,89 @@ def find_active_conversation(data_dir: Path, config_dir: Path, project_filter=No
                 conn.close()
 
     return sessions[0] if sessions else None
+
+def calculate_session_analytics(data_dir: Path, conv_id: str) -> dict:
+    """
+    Calculates detailed token, tool, and performance analytics from transcript.jsonl.
+    """
+    transcript_path = Path(data_dir) / "brain" / conv_id / ".system_generated" / "logs" / "transcript.jsonl"
+    analytics = {
+        "conversation_id": conv_id,
+        "total_steps": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_cache_tokens": 0,
+        "models_used": [],
+        "tool_counts": {},
+        "tool_percentages": {},
+        "estimated_context_tokens": 0,
+        "context_window_limit": 200000,
+        "context_window_percent": 0.0,
+        "first_step_time": None,
+        "last_step_time": None
+    }
+
+    if not transcript_path.exists():
+        return analytics
+
+    models = set()
+    tool_counter = {}
+    total_tools = 0
+    timestamps = []
+
+    try:
+        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                try:
+                    step = json.loads(line_str)
+                    analytics["total_steps"] += 1
+
+                    if "model" in step and step["model"]:
+                        models.add(step["model"])
+
+                    inp = step.get("input_tokens") or 0
+                    out = step.get("output_tokens") or 0
+                    cache = step.get("cache_read_tokens") or 0
+
+                    analytics["total_input_tokens"] += inp
+                    analytics["total_output_tokens"] += out
+                    analytics["total_cache_tokens"] += cache
+
+                    if inp > 0:
+                        analytics["estimated_context_tokens"] = inp + out
+
+                    if "created_at" in step and step["created_at"]:
+                        timestamps.append(step["created_at"])
+
+                    tool_calls = step.get("tool_calls") or []
+                    for tc in tool_calls:
+                        tname = tc.get("name") or "unknown"
+                        tool_counter[tname] = tool_counter.get(tname, 0) + 1
+                        total_tools += 1
+                except Exception:
+                    pass
+
+        analytics["models_used"] = sorted(list(models))
+        analytics["tool_counts"] = tool_counter
+
+        if total_tools > 0:
+            for tname, cnt in tool_counter.items():
+                analytics["tool_percentages"][tname] = round((cnt / total_tools) * 100, 1)
+
+        limit = 200000
+        if any("1m" in m.lower() or "flash" in m.lower() for m in models):
+            limit = 1000000
+        analytics["context_window_limit"] = limit
+        ctx = analytics["estimated_context_tokens"] or analytics["total_input_tokens"]
+        analytics["context_window_percent"] = min(100.0, round((ctx / limit) * 100, 1))
+
+        if timestamps:
+            analytics["first_step_time"] = timestamps[0]
+            analytics["last_step_time"] = timestamps[-1]
+    except Exception as e:
+        print(f"[!] Error calculating analytics: {e}", file=sys.stderr)
+
+    return analytics

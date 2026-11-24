@@ -6,8 +6,73 @@ macOS, Linux, and WSL2 environments with zero hardcoded usernames.
 
 import os
 import glob
+import time
 import subprocess
 from pathlib import Path
+
+def get_conversation_artifacts(data_dir: Path, conv_id: str) -> list:
+    """
+    Scans data_dir/brain/<conv_id>/ for markdown and json artifacts.
+    Returns list of metadata dicts sorted by modification time descending.
+    """
+    brain_dir = Path(data_dir) / "brain" / conv_id
+    if not brain_dir.is_dir():
+        return []
+
+    artifacts = []
+    try:
+        for f in brain_dir.iterdir():
+            if f.is_file() and (f.suffix.lower() in [".md", ".json"]) and not f.name.startswith(".") and not f.name.endswith(".metadata.json"):
+                try:
+                    stat = f.stat()
+                    is_plan = "plan" in f.name.lower()
+                    is_walkthrough = "walkthrough" in f.name.lower()
+                    kind = "plan" if is_plan else ("walkthrough" if is_walkthrough else "doc")
+
+                    title = f.stem.replace("_", " ").replace("-", " ").title()
+                    artifacts.append({
+                        "name": f.name,
+                        "title": title,
+                        "kind": kind,
+                        "size_bytes": stat.st_size,
+                        "modified_at": stat.st_mtime,
+                        "modified_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+                    })
+                except Exception:
+                    pass
+    except Exception as e:
+        import sys
+        print(f"[!] Error reading artifacts: {e}", file=sys.stderr)
+
+    artifacts.sort(key=lambda x: x["modified_at"], reverse=True)
+    return artifacts
+
+def read_artifact_file(data_dir: Path, conv_id: str, filename: str) -> str | None:
+    """
+    Reads the contents of an artifact file within data_dir/brain/<conv_id>/
+    after verifying security boundaries.
+    """
+    brain_dir = Path(data_dir) / "brain" / conv_id
+    if not brain_dir.is_dir():
+        return None
+
+    target = brain_dir / filename
+    try:
+        resolved = target.resolve()
+        resolved_brain = brain_dir.resolve()
+        # Verify boundary containment
+        try:
+            if not resolved.is_relative_to(resolved_brain):
+                return None
+        except AttributeError:
+            if not str(resolved).startswith(str(resolved_brain)):
+                return None
+
+        if not resolved.is_file():
+            return None
+        return resolved.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return None
 
 def resolve_antigravity_paths(custom_data=None, custom_config=None):
     """

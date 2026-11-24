@@ -16,7 +16,7 @@ from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
-from studio.paths import resolve_antigravity_paths, get_public_dir
+from studio.paths import resolve_antigravity_paths, get_public_dir, get_conversation_artifacts, read_artifact_file
 from studio.security import (
     validate_host_header,
     get_allowed_cors_origin,
@@ -29,7 +29,8 @@ from studio.telemetry import (
     scan_projects,
     find_all_active_sessions,
     find_active_conversation,
-    get_available_subagents
+    get_available_subagents,
+    calculate_session_analytics
 )
 
 # Global runtime state
@@ -195,6 +196,106 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(sessions).encode("utf-8"))
             return
 
+        # API: Conversation Artifacts List
+        if path == "/api/artifacts":
+            raw_conv_id = query.get("conversation_id", [None])[0]
+            conv_id = None
+            if raw_conv_id:
+                conv_id = sanitize_identifier(raw_conv_id)
+                if not conv_id:
+                    self.send_response(400)
+                    self.send_cors_and_security_headers()
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "Invalid conversation_id parameter"}')
+                    return
+            else:
+                active_info = find_active_conversation(DATA_DIR, CONFIG_DIR)
+                conv_id = active_info.get("conversation_id") if active_info else None
+
+            if not conv_id:
+                self.send_response(404)
+                self.send_cors_and_security_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "No conversation found"}')
+                return
+
+            artifacts = get_conversation_artifacts(DATA_DIR, conv_id)
+            self.send_response(200)
+            self.send_cors_and_security_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(json.dumps(artifacts).encode("utf-8"))
+            return
+
+        # API: Conversation Artifact Content Stream
+        if path == "/api/artifacts/content":
+            raw_conv_id = query.get("conversation_id", [None])[0]
+            raw_file = query.get("file", [None])[0]
+            conv_id = sanitize_identifier(raw_conv_id) if raw_conv_id else None
+            filename = sanitize_identifier(raw_file) if raw_file else None
+
+            if not conv_id or not filename:
+                self.send_response(400)
+                self.send_cors_and_security_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "Missing or invalid conversation_id or file parameter"}')
+                return
+
+            content = read_artifact_file(DATA_DIR, conv_id, filename)
+            if content is None:
+                self.send_response(404)
+                self.send_cors_and_security_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "Artifact file not found or access denied"}')
+                return
+
+            self.send_response(200)
+            self.send_cors_and_security_headers()
+            self.send_header("Content-Type", "text/markdown; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(content.encode("utf-8", errors="replace"))
+            return
+
+        # API: Real-Time Session Telemetry & Analytics
+        if path == "/api/analytics":
+            raw_conv_id = query.get("conversation_id", [None])[0]
+            conv_id = None
+            if raw_conv_id:
+                conv_id = sanitize_identifier(raw_conv_id)
+                if not conv_id:
+                    self.send_response(400)
+                    self.send_cors_and_security_headers()
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "Invalid conversation_id parameter"}')
+                    return
+            else:
+                active_info = find_active_conversation(DATA_DIR, CONFIG_DIR)
+                conv_id = active_info.get("conversation_id") if active_info else None
+
+            if not conv_id:
+                self.send_response(404)
+                self.send_cors_and_security_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error": "No conversation found"}')
+                return
+
+            analytics = calculate_session_analytics(DATA_DIR, conv_id)
+            self.send_response(200)
+            self.send_cors_and_security_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(json.dumps(analytics).encode("utf-8"))
+            return
+
         # API: Server-Sent Events (SSE) Live Stream
         if path == "/api/events":
             raw_conv_id = query.get("conversation_id", [None])[0]
@@ -253,7 +354,9 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             "total_steps": 0,
             "focus": None,
             "steps": [],
-            "recent_steps": []
+            "recent_steps": [],
+            "artifacts_count": len(get_conversation_artifacts(DATA_DIR, conv_id)),
+            "analytics": calculate_session_analytics(DATA_DIR, conv_id)
         }
 
         last_line_idx = 0
