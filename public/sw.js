@@ -1,5 +1,5 @@
 // Antigravity Autonomous Studio - Service Worker
-const CACHE_NAME = 'agi-studio-cache-v3';
+const CACHE_NAME = 'agi-studio-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/?auto=true',

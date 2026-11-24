@@ -1,6 +1,6 @@
 """
 Antigravity Autonomous Studio - Branding & Icon Contract Tests
-Verifies official Antigravity app icons, favicons, PWA manifest, and header branding.
+Verifies bespoke custom app icons, pure vector SVG, favicons, PWA manifest, and header branding.
 """
 
 import json
@@ -15,9 +15,9 @@ ASSETS_DIR = PUBLIC_DIR / "assets"
 
 
 class TestStudioBranding(unittest.TestCase):
-    """Test suite ensuring proper Antigravity branding and icon assets."""
+    """Test suite ensuring bespoke Antigravity branding and icon assets."""
 
-    def test_official_icon_assets_exist(self):
+    def test_custom_icon_assets_exist(self):
         """Verify all standard Antigravity icons and favicons exist with non-zero size."""
         required_assets = [
             ASSETS_DIR / "antigravity-icon.png",
@@ -26,6 +26,7 @@ class TestStudioBranding(unittest.TestCase):
             PUBLIC_DIR / "favicon.ico",
             PUBLIC_DIR / "apple-touch-icon.png",
             ASSETS_DIR / "icon-16.png",
+            ASSETS_DIR / "icon-24.png",
             ASSETS_DIR / "icon-32.png",
             ASSETS_DIR / "icon-48.png",
             ASSETS_DIR / "icon-64.png",
@@ -37,6 +38,18 @@ class TestStudioBranding(unittest.TestCase):
         for asset in required_assets:
             self.assertTrue(asset.is_file(), f"Missing required icon asset: {asset.name}")
             self.assertGreater(asset.stat().st_size, 100, f"Asset {asset.name} is too small or empty")
+
+    def test_pure_vector_svg_contract(self):
+        """Verify logo.svg is a pure mathematical vector SVG without embedded raster blobs."""
+        svg_path = ASSETS_DIR / "logo.svg"
+        content = svg_path.read_text(encoding="utf-8")
+
+        self.assertIn("<svg", content)
+        self.assertIn("<polygon", content)
+        self.assertIn("<path", content)
+        self.assertIn("<linearGradient", content)
+        self.assertNotIn("data:image", content, "logo.svg must be pure vector geometry without embedded raster blobs")
+        self.assertNotIn("base64", content, "logo.svg must not contain base64 binary blobs")
 
     def test_antigravity_icon_dimensions_and_mode(self):
         """Verify the master antigravity-icon.png is 256x256 RGBA."""
@@ -81,7 +94,7 @@ class TestStudioBranding(unittest.TestCase):
 
         self.assertIn("/assets/antigravity-icon.png", content)
         self.assertIn("/favicon.ico", content)
-        self.assertIn("agi-studio-cache-v3", content)
+        self.assertIn("agi-studio-cache-v4", content)
 
     def test_zero_emoji_compliance(self):
         """Strict compliance check to ensure no emoji characters in modified branding files."""
@@ -92,6 +105,7 @@ class TestStudioBranding(unittest.TestCase):
             PUBLIC_DIR / "index.html",
             PUBLIC_DIR / "manifest.json",
             PUBLIC_DIR / "sw.js",
+            ASSETS_DIR / "logo.svg",
             Path(__file__)
         ]
         for f in checked_files:
