@@ -77,6 +77,10 @@ function initUIEvents() {
   projectSelect.addEventListener('change', (e) => {
     const selected = e.target.value;
     if (selected) {
+      if (autoFollowEnabled) {
+        autoFollowEnabled = false;
+        updateAutoFollowButton();
+      }
       localStorage.setItem('antigravity_selected_project', selected);
       switchProject(selected);
     }
@@ -361,6 +365,10 @@ function renderActiveSessionsBar(sessions) {
 
     chip.addEventListener('click', (e) => {
       e.preventDefault();
+      if (autoFollowEnabled) {
+        autoFollowEnabled = false;
+        updateAutoFollowButton();
+      }
       switchSession(s.conversation_id, s.project_name, s.project_id, s.title, s.active);
     });
 
