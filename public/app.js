@@ -12,6 +12,7 @@ let autoFollowEnabled = true;
 let totalStepsCount = 0;
 let lastKnownActive = null;
 let cachedMissionSteps = [];
+const META_CONVERSATION_ID = "7f270c91-8b98-45aa-9bfd-311aa2a47b72";
 
 document.addEventListener('DOMContentLoaded', () => {
   officeSim = new OfficeSimulator('officeCanvas');
@@ -73,9 +74,14 @@ function initUIEvents() {
   projectSelect.addEventListener('change', (e) => {
     const selected = e.target.value;
     if (selected) {
-      autoFollowEnabled = false;
-      updateAutoFollowButton();
-      switchProject(selected);
+      localStorage.setItem('antigravity_selected_project', selected);
+      if (selected === 'auto') {
+        autoFollowEnabled = true;
+        updateAutoFollowButton();
+        checkActiveProject(true);
+      } else {
+        switchProject(selected);
+      }
     }
   });
 
@@ -129,7 +135,7 @@ async function loadProjects() {
     const projects = await res.json();
 
     const select = document.getElementById('project-select');
-    select.innerHTML = '<option value="" disabled>-- Select Workspace --</option>';
+    select.innerHTML = '<option value="auto">🌐 Auto-Follow Active Project</option>';
 
     projects.forEach(p => {
       const opt = document.createElement('option');
@@ -146,7 +152,7 @@ async function loadProjects() {
 
     if (urlConv) {
       currentConversationId = urlConv;
-      connectToEventStream(urlConv);
+      connectToEventStream(urlConv, true);
       return;
     }
 
@@ -156,9 +162,21 @@ async function loadProjects() {
       const match = projects.find(p => p.id === urlProj || p.name.toLowerCase() === urlProj.toLowerCase());
       if (match) {
         select.value = match.id;
+        localStorage.setItem('antigravity_selected_project', match.id);
         switchProject(match.id, projects);
         return;
       }
+    }
+
+    // Check saved project selection
+    const saved = localStorage.getItem('antigravity_selected_project');
+    if (saved && saved !== 'auto') {
+      const match = projects.find(p => p.id === saved);
+      if (match) {
+        select.value = saved;
+      }
+    } else {
+      select.value = 'auto';
     }
 
     checkActiveProject(true);
@@ -169,19 +187,29 @@ async function loadProjects() {
 
 async function checkActiveProject(force = false) {
   try {
-    const res = await fetch('/api/projects/active');
+    const select = document.getElementById('project-select');
+    const selectedVal = select ? select.value : 'auto';
+
+    let url = '/api/projects/active';
+    const params = new URLSearchParams();
+
+    if (selectedVal && selectedVal !== 'auto') {
+      params.set('project_id', selectedVal);
+    } else {
+      // Exclude this visualizer meta-chat from stealing focus
+      params.set('exclude_conv_id', META_CONVERSATION_ID);
+    }
+    url += '?' + params.toString();
+
+    const res = await fetch(url);
     const active = await res.json();
 
     if (!active || !active.conversation_id) return;
 
     const isActive = Boolean(active.active);
-    const select = document.getElementById('project-select');
-    let displayTitle = active.project_id;
-    if (select && select.options) {
-      const match = Array.from(select.options).find(o => o.value === active.project_id);
-      if (match) displayTitle = match.text.replace(/^[🟢⚪]\s*/, '').replace(/\s*\(\d+\)$/, '');
-    }
-    updateActiveHeader(displayTitle, active.title, isActive);
+    const projectName = active.project_name || active.project_id || "Workspace";
+
+    updateActiveHeader(projectName, active.title, isActive);
 
     if (lastKnownActive === true && !isActive) {
       onConversationIdle();
@@ -192,10 +220,11 @@ async function checkActiveProject(force = false) {
       currentConversationId = active.conversation_id;
       currentProjectId = active.project_id;
 
-      const select = document.getElementById('project-select');
-      if (select) select.value = active.project_id;
+      if (select && selectedVal !== 'auto') {
+        select.value = active.project_id;
+      }
 
-      connectToEventStream(active.conversation_id);
+      connectToEventStream(active.conversation_id, isActive);
     }
   } catch (err) {
     console.error("Active project check error:", err);
@@ -237,15 +266,16 @@ async function switchProject(projectId, projectsCache = null) {
   updateActiveHeader(proj.display_name, convTitle, proj.active);
 
   if (convId) {
-    connectToEventStream(convId);
+    connectToEventStream(convId, proj.active);
   }
 }
 
 function updateActiveHeader(projectName, sessionTitle, isActive) {
   const nameEl = document.getElementById('active-project-name');
   const badgeEl = document.getElementById('active-project-badge');
+  const focusBanner = document.getElementById('focus-banner-text');
 
-  if (nameEl) nameEl.textContent = projectName;
+  if (nameEl) nameEl.textContent = projectName || "Workspace";
   if (badgeEl) {
     if (isActive) {
       badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
@@ -255,11 +285,38 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
       badgeEl.textContent = "IDLE / READY";
     }
   }
+  if (focusBanner && sessionTitle) {
+    focusBanner.textContent = sessionTitle;
+  }
 }
 
-function connectToEventStream(conversationId) {
+function connectToEventStream(conversationId, isActive = true) {
   if (eventSource) {
     eventSource.close();
+  }
+
+  // 1. Reset metrics & step cache
+  cachedMissionSteps = [];
+  totalStepsCount = 0;
+  const counter = document.getElementById('step-counter');
+  if (counter) counter.textContent = '0';
+
+  // 2. Reset Roadmap UI to clean telemetry stream
+  renderRoadmapPipeline([]);
+
+  // 3. Reset Office Simulator state (clear stale mission steps, return agents to desks)
+  if (officeSim && typeof officeSim.resetSessionState === 'function') {
+    officeSim.resetSessionState(isActive);
+  }
+
+  // 4. Reset Action Feed with clean connection indicator
+  const feed = document.getElementById('action-feed');
+  if (feed) {
+    feed.innerHTML = `
+      <div class="text-slate-400 text-xs italic p-4 text-center">
+        Connected to live session stream: <strong class="font-mono text-slate-600">${conversationId.slice(0, 8)}</strong>
+      </div>
+    `;
   }
 
   const statusText = document.getElementById('stream-status');
@@ -408,7 +465,9 @@ function handleStepEvent(step) {
   if (step.type === "PLANNER_RESPONSE") {
     if (step.content && !step.tool_calls) {
       onConversationIdle();
-      updateActiveHeader(currentProjectId, null, false);
+      const nameEl = document.getElementById('active-project-name');
+      const curName = nameEl ? nameEl.textContent : currentProjectId;
+      updateActiveHeader(curName, null, false);
     }
   }
 }
@@ -565,7 +624,19 @@ function renderRoadmapPipeline(steps) {
     }
   }
 
-  if (!container || !stepsList || !Array.isArray(stepsArray) || stepsArray.length === 0) return;
+  if (!container || !stepsList) return;
+
+  if (!Array.isArray(stepsArray) || stepsArray.length === 0) {
+    container.classList.remove('hidden');
+    stepsList.innerHTML = `
+      <div class="p-2.5 text-center text-xs text-slate-400 italic">
+        Streaming real-time tool executions & telemetry...
+      </div>
+    `;
+    if (summaryEl) summaryEl.textContent = "Autonomous Stream";
+    if (officeSim) officeSim.setMissionSteps([]);
+    return;
+  }
 
   container.classList.remove('hidden');
   stepsList.innerHTML = "";

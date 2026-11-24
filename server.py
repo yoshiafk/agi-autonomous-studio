@@ -189,48 +189,76 @@ def scan_projects():
     )
     return sorted_projects
 
-def find_active_conversation():
+def find_active_conversation(project_filter=None, exclude_conv=None):
     """Finds the currently running conversation (not_fully_idle = 1) or most recent."""
     conn = get_db_connection()
     if not conn:
         return None
     try:
         cur = conn.cursor()
-        # First check explicitly active conversation
+        
+        # Load project mapping overrides if any
+        mapping_file = CONFIG_DIR / "conversation_project_map.json"
+        conv_map = {}
+        if mapping_file.exists():
+            try:
+                conv_map = json.loads(mapping_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        # Load project manifests to get clean display names
+        projects_dir = CONFIG_DIR / "projects"
+        proj_names = {}
+        if projects_dir.exists():
+            for p_file in projects_dir.glob("*.json"):
+                try:
+                    p_data = json.loads(p_file.read_text(encoding="utf-8"))
+                    pid = p_data.get("id") or p_file.stem
+                    pname = p_data.get("name") or pid
+                    proj_names[pid] = pname
+                except Exception:
+                    pass
+
         cur.execute("""
             SELECT conversation_id, project_id, title, not_fully_idle, last_modified_time
             FROM conversation_summaries
-            WHERE not_fully_idle = 1
             ORDER BY last_modified_time DESC
-            LIMIT 1
         """)
-        row = cur.fetchone()
-        if not row:
-            # Fallback to the latest modified
-            cur.execute("""
-                SELECT conversation_id, project_id, title, not_fully_idle, last_modified_time
-                FROM conversation_summaries
-                ORDER BY last_modified_time DESC
-                LIMIT 1
-            """)
-            row = cur.fetchone()
-        if row:
-            mapping_file = CONFIG_DIR / "conversation_project_map.json"
-            p_id = row[1] or "outside-of-project"
-            if mapping_file.exists():
-                try:
-                    conv_map = json.loads(mapping_file.read_text(encoding="utf-8"))
-                    if row[0] in conv_map:
-                        p_id = conv_map[row[0]]
-                except Exception:
-                    pass
-            return {
-                "conversation_id": row[0],
-                "project_id": p_id,
-                "title": row[2] or "(Untitled Session)",
-                "active": bool(row[3] == 1),
-                "modified": row[4]
+        rows = cur.fetchall()
+
+        candidates = []
+        for row in rows:
+            cid = row[0]
+            raw_pid = row[1] or "outside-of-project"
+            title = row[2] or "(Untitled Session)"
+            is_active = bool(row[3] == 1)
+            mtime = row[4]
+            resolved_pid = conv_map.get(cid) or raw_pid
+
+            if exclude_conv and cid == exclude_conv:
+                continue
+
+            p_display = proj_names.get(resolved_pid, resolved_pid)
+
+            if project_filter:
+                if resolved_pid != project_filter and p_display.lower() != project_filter.lower():
+                    continue
+
+            item = {
+                "conversation_id": cid,
+                "project_id": resolved_pid,
+                "project_name": p_display,
+                "title": title,
+                "active": is_active,
+                "modified": mtime
             }
+
+            if is_active:
+                return item
+            candidates.append(item)
+
+        if candidates:
+            return candidates[0]
         return None
     except Exception as e:
         print(f"[!] Error finding active conversation: {e}", file=sys.stderr)
@@ -309,7 +337,9 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
 
         # 2. API: Get currently active conversation
         if path == "/api/projects/active":
-            active = find_active_conversation()
+            project_filter = query.get("project_id", [None])[0]
+            exclude_conv = query.get("exclude_conv_id", [None])[0]
+            active = find_active_conversation(project_filter=project_filter, exclude_conv=exclude_conv)
             self.send_response(200)
             self.send_cors_headers()
             self.send_header("Content-Type", "application/json")

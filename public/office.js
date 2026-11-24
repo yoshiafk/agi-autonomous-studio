@@ -222,6 +222,30 @@ class OfficeSimulator {
     }
   }
 
+  resetSessionState(isActive = true) {
+    this.missionSteps = [];
+    this.wasAllStepsDone = false;
+    this.particles = [];
+
+    // Return agents to their workstation stations
+    this.agents.forEach(ag => {
+      ag.targetX = ag.homeX;
+      ag.targetY = ag.homeY;
+      ag.isPaused = false;
+      ag.isDrifting = false;
+      if (isActive) {
+        ag.state = (ag.id === 0) ? "working" : "resting";
+        ag.currentTask = (ag.id === 0) ? "Session Coordinator" : "Station Idle";
+        ag.speech = (ag.id === 0) ? "Monitoring workspace..." : "";
+      } else {
+        ag.state = "resting";
+        ag.currentTask = "Resting";
+        ag.speech = "";
+      }
+    });
+    this.updateRosterUI();
+  }
+
   setAllIdle() {
     // Natural distributed seating in the redesigned Scandinavian cafe lounge
     const loungeSpots = [
