@@ -169,26 +169,35 @@ class ChiptuneAudio {
     } catch (e) {}
   }
 
-  // 8-bit drift alert / warning boop
-  playAlert() {
+  // 8-bit descending glitch buzz for errors, failures, and breaks
+  playErrorGlitch() {
     if (!this.enabled || !this.hasUserInteracted) return;
+    const now = Date.now();
+    if (this.lastSoundTime.error && now - this.lastSoundTime.error < 600) return;
+    this.lastSoundTime.error = now;
     if (!this.init()) return;
 
     try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(440, this.ctx.currentTime);
-      osc.frequency.setValueAtTime(330, this.ctx.currentTime + 0.08);
+      // Dual-oscillator descending sawtooth buzz
+      const freqs = [293.66, 220.00, 164.81, 110.00]; // D4 -> A3 -> E3 -> A2
+      freqs.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = (idx % 2 === 0) ? 'sawtooth' : 'square';
+        const st = this.ctx.currentTime + idx * 0.055;
+        osc.frequency.setValueAtTime(freq, st);
+        osc.frequency.linearRampToValueAtTime(freq * 0.82, st + 0.05);
 
-      gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0, st);
+        gain.gain.linearRampToValueAtTime(0.08, st + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.001, st + 0.06);
 
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
 
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.19);
+        osc.start(st);
+        osc.stop(st + 0.065);
+      });
     } catch (e) {}
   }
 }

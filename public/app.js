@@ -991,6 +991,31 @@ function handleStepEvent(step, isHydrate = false) {
     if (counter) counter.textContent = totalStepsCount;
   }
 
+  // 0. Detect Errors, Failures & Non-Zero Tool Exit Codes
+  if (step.status === "ERROR" || step.type === "ERROR_MESSAGE") {
+    const errorText = (typeof step.content === 'string') ? step.content : (step.error || "Execution Error");
+    const cleanError = errorText.replace(/[\n\r]+/g, ' ').slice(0, 120);
+    renderErrorCard("Execution Failure", cleanError);
+    if (officeSim && typeof officeSim.triggerAgentFailure === 'function') {
+      officeSim.triggerAgentFailure(null, cleanError.slice(0, 48));
+    }
+    return;
+  }
+
+  if (step.type === "GENERIC" && typeof step.content === 'string') {
+    const content = step.content;
+    const exitMatch = content.match(/Command exited with code ([1-9]\d*)/i);
+    const hasFatal = /\b(syntaxerror|traceback \(most recent call last\)|build failed|failed with exit code)\b/i.test(content);
+    if (exitMatch || hasFatal) {
+      const reason = exitMatch ? `Command failed (Exit code ${exitMatch[1]})` : "Build / Test Assertion Failure";
+      renderErrorCard("Failure Detected", reason);
+      if (officeSim && typeof officeSim.triggerAgentFailure === 'function') {
+        officeSim.triggerAgentFailure(null, reason);
+      }
+      return;
+    }
+  }
+
   // 1. Detect Commands (/plan, /research, /goal)
   if (step.type === "USER_INPUT" && step.content) {
     const raw = step.content;
@@ -1324,6 +1349,28 @@ function renderFocusCard(focusText) {
   appendCard(feed, card);
 }
 
+function renderErrorCard(title, details) {
+  const feed = getFeedContainer();
+  if (!feed) return;
+
+  const card = document.createElement('div');
+  card.className = "feed-card flex flex-col gap-1.5 border-l-2 border-red-500 bg-red-50/10 dark:bg-red-950/20";
+  card.dataset.category = 'error';
+  const timeStr = new Date().toLocaleTimeString();
+  card.innerHTML = `
+    <div class="flex items-center justify-between text-xs">
+      <div class="flex items-center gap-2">
+        <span class="feed-badge badge-error">FAILED</span>
+        <span class="font-bold text-red-600 dark:text-red-400 text-xs">${escapeHtml(title)}</span>
+      </div>
+      <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${timeStr}</span>
+    </div>
+    <div class="text-[11px] font-mono text-red-600 dark:text-red-300 break-words">${escapeHtml(details)}</div>
+  `;
+  appendCard(feed, card);
+  return card;
+}
+
 function renderGenericCard(title, details, borderClass = "", iconName = "activity") {
   const feed = getFeedContainer();
   if (!feed) return;
@@ -1396,22 +1443,25 @@ function renderRoadmapPipeline(steps) {
   stepsArray.forEach((st, idx) => {
     const isDone = (st.status === "done");
     const isInProgress = (st.status === "in_progress");
+    const isFailed = (st.status === "failed");
     if (isDone) doneCount++;
 
     const item = document.createElement('div');
     item.className = `roadmap-item ${
-      isDone ? 'done' : (isInProgress ? 'in-progress' : 'pending')
+      isDone ? 'done' : (isFailed ? 'failed' : (isInProgress ? 'in-progress' : 'pending'))
     }`;
 
     const icon = isDone
       ? `<span class="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">${typeof renderIcon === 'function' ? renderIcon('checkCircle', 'w-3 h-3') : 'ok'}</span>`
-      : (isInProgress
-        ? `<span class="w-4 h-4 rounded-full bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0 animate-pulse">${typeof renderIcon === 'function' ? renderIcon('play', 'w-2.5 h-2.5') : '>'}</span>`
-        : `<span class="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-400 shrink-0 font-mono">${idx + 1}</span>`);
+      : (isFailed
+        ? `<span class="w-4 h-4 rounded-full bg-red-500/15 text-red-500 flex items-center justify-center shrink-0">${typeof renderIcon === 'function' ? renderIcon('x', 'w-3 h-3') : 'x'}</span>`
+        : (isInProgress
+          ? `<span class="w-4 h-4 rounded-full bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0 animate-pulse">${typeof renderIcon === 'function' ? renderIcon('play', 'w-2.5 h-2.5') : '>'}</span>`
+          : `<span class="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-400 shrink-0 font-mono">${idx + 1}</span>`));
 
     item.innerHTML = `
       ${icon}
-      <span class="truncate flex-1 ${isDone ? 'line-through text-slate-500' : ''}">${st.title}</span>
+      <span class="truncate flex-1 ${isDone ? 'line-through text-slate-500' : (isFailed ? 'text-red-500 font-semibold' : '')}">${st.title}</span>
     `;
     stepsList.appendChild(item);
   });
@@ -1490,15 +1540,32 @@ function runDemoSimulation() {
     renderCommandCard("docker compose run --rm tests pytest", "Automated QA Suite at CI/CD Bay");
   }, 8000);
 
-  // 6. Git Postmaster (Git Post Office)
+  // 5b. Transient Failure Injection & Reaction
+  setTimeout(() => {
+    demoRoadmap[4].status = "failed";
+    renderRoadmapPipeline(demoRoadmap);
+    officeSim.triggerAgentFailure("devops", "AssertionError: 1 failed, 14 passed");
+    renderErrorCard("QA Assertion Failure", "docker compose: pytest failed with exit code 1 (test_session.py:42)");
+  }, 9800);
+
+  // 5c. Self-Healing Hotfix & Recovery to Success
   setTimeout(() => {
     demoRoadmap[4].status = "done";
     demoRoadmap[5].status = "in_progress";
     renderRoadmapPipeline(demoRoadmap);
 
+    officeSim.handleToolAction("run_command", { CommandLine: "pytest --lf (Passed: 15/15)", toolSummary: "Hotfix Verified: 15/15 Tests Passing" });
+    renderCommandCard("pytest tests/test_session.py", "Hotfix Verified: 15/15 Tests Passing (Self-Healing)");
+  }, 12500);
+
+  // 6. Git Postmaster (Git Post Office)
+  setTimeout(() => {
+    demoRoadmap[5].status = "in_progress";
+    renderRoadmapPipeline(demoRoadmap);
+
     officeSim.handleToolAction("run_command", { CommandLine: "git commit -m 'feat: ship auth session pod' && git push origin main" });
     renderCommandCard("git commit -m 'feat: ship auth session pod' && git push origin main", "Remote Push at Git Dispatch");
-  }, 10000);
+  }, 14500);
 
   // 7. Team Celebration & Espresso Lounge
   setTimeout(() => {
@@ -1507,5 +1574,5 @@ function runDemoSimulation() {
 
     onConversationIdle();
     renderGenericCard("Sprint Complete", "All milestones validated and shipped. All 6 specialists in standby at Breakout Atrium", "action-card-cmd", "checkCircle");
-  }, 12500);
+  }, 17000);
 }

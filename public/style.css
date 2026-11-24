@@ -287,6 +287,23 @@ body.theme-night .roadmap-item.done {
   color: var(--text-muted);
 }
 
+.roadmap-item.failed {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  font-weight: 600;
+}
+body.theme-sunset .roadmap-item.failed {
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: #fca5a5;
+  color: #f87171;
+}
+body.theme-night .roadmap-item.failed {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #fca5a5 !important;
+}
+
 /* Segmented controls */
 .segmented-control {
   background-color: var(--surface-muted);
@@ -380,6 +397,11 @@ body.theme-night .roadmap-item.done {
 
 .roster-status-dot.paused {
   background-color: #94a3b8;
+}
+
+.roster-status-dot.error {
+  background-color: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
 }
 
 .roster-card-meta {
@@ -490,6 +512,29 @@ body.theme-night .roster-status-badge.paused {
   background-color: rgba(239, 68, 68, 0.2) !important;
   color: #fca5a5 !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.roster-status-badge.error {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #f87171;
+  font-weight: 800;
+}
+body.theme-sunset .roster-status-badge.error {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: #fca5a5;
+}
+body.theme-night .roster-status-badge.error {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+.feed-badge.badge-error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 /* Form Controls & Dropdowns */

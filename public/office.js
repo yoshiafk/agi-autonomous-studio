@@ -268,20 +268,46 @@ class OfficeSimulator {
     const tokenCap = document.getElementById('insp-token-capacity');
     const tokenBar = document.getElementById('insp-token-bar');
     const pauseBtn = document.getElementById('insp-pause-btn');
+    const inspectorBar = document.getElementById('inspector-bar');
+
+    const isError = (ag.state === "error");
+
+    if (inspectorBar) {
+      if (isError) {
+        inspectorBar.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+        inspectorBar.style.boxShadow = '0 0 14px rgba(239, 68, 68, 0.25)';
+      } else {
+        inspectorBar.style.borderColor = '';
+        inspectorBar.style.boxShadow = '';
+      }
+    }
 
     const tokenRatio = ag.contextRatio || (0.35 + (ag.id * 0.14));
     const tokenPct = Math.round(tokenRatio * 100);
     const tokenCount = Math.round(tokenRatio * 200);
-    const contextColor = tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981');
+    const contextColor = isError ? '#ef4444' : (tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981'));
 
     if (badge) {
-      badge.textContent = ag.role.toUpperCase();
-      badge.style.backgroundColor = `${ag.color}15`;
-      badge.style.borderColor = `${ag.color}40`;
-      badge.style.color = ag.color;
+      if (isError) {
+        badge.textContent = "EXECUTION FAILED";
+        badge.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
+        badge.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        badge.style.color = "#ef4444";
+      } else {
+        badge.textContent = ag.role.toUpperCase();
+        badge.style.backgroundColor = `${ag.color}15`;
+        badge.style.borderColor = `${ag.color}40`;
+        badge.style.color = ag.color;
+      }
     }
     if (name) name.textContent = ag.name;
-    if (status) status.textContent = ag.speech || ag.currentTask || 'Ready for instructions...';
+    if (status) {
+      if (isError) {
+        status.innerHTML = `<span class="font-bold text-red-500">${ag.lastError || ag.speech || 'Execution Failure'}</span>`;
+      } else {
+        status.textContent = ag.speech || ag.currentTask || 'Ready for instructions...';
+      }
+    }
 
     if (tokenCap) {
       tokenCap.textContent = `${tokenPct}% (${tokenCount}k / 200k)`;
@@ -295,6 +321,38 @@ class OfficeSimulator {
     if (pauseBtn) {
       pauseBtn.textContent = ag.isPaused ? 'Resume' : 'Pause';
     }
+  }
+
+  triggerAgentFailure(agentId, errorReason = "Execution Error") {
+    let ag = null;
+    if (agentId !== undefined && agentId !== null) {
+      ag = this.agents.find(a => a.id === agentId || a.key === agentId);
+    }
+    if (!ag) {
+      ag = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
+    }
+    if (!ag) return;
+
+    ag.state = "error";
+    ag.errorTimer = 210; // ~3.5 seconds
+    ag.lastError = errorReason;
+    ag.speech = errorReason;
+    ag.currentTask = `Failed: ${errorReason.slice(0, 24)}`;
+    ag.isPaused = false;
+
+    if (window.chiptuneAudio) {
+      window.chiptuneAudio.playErrorGlitch();
+    }
+
+    if (this.spawnParticle) {
+      this.spawnParticle(ag.x, ag.y - 18, 'smoke', '', 'rgba(71, 85, 105, 0.6)');
+      this.spawnParticle(ag.x - 7, ag.y - 24, 'sweat', '', '#38bdf8');
+      this.spawnParticle(ag.x + 7, ag.y - 24, 'sweat', '', '#38bdf8');
+    }
+
+    this.selectAgent(ag.id);
+    this.updateCockpitUI();
+    this.updateRosterUI();
   }
 
   selectAgent(id) {
@@ -569,7 +627,10 @@ class OfficeSimulator {
         ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee"].some(t => ag.currentTask && ag.currentTask.includes(t)) ||
         (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("reference manual")));
 
-      if (ag.isPaused) {
+      if (ag.state === "error") {
+        statusClass = "error";
+        statusLabel = "FAILED";
+      } else if (ag.isPaused) {
         statusClass = "paused";
         statusLabel = "PAUSED";
       } else if (isResting) {
@@ -586,7 +647,7 @@ class OfficeSimulator {
       // Metadata calculations
       const tokenRatio = ag.contextRatio || (0.35 + (ag.id * 0.14));
       const tokenPct = Math.round(tokenRatio * 100);
-      const contextColor = tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981');
+      const contextColor = (ag.state === "error") ? '#ef4444' : (tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981'));
       const shortStation = stationLabel.replace(" (Front Exec)", "").replace(" (Back Exec)", "");
 
       card.innerHTML = `
@@ -1690,78 +1751,111 @@ class OfficeSimulator {
     this.ctx.font = 'bold 7px sans-serif';
     this.ctx.fillText("MAIN", x + 19, y - ph / 2 + 14);
 
-    // 6. Directional Satellite Uplink Dish (Authentic Parabolic Vector Geometry)
+    // 6. Directional High-Gain Satellite Uplink Dish (Precision Parabolic Transceiver)
     const dishX = x + pw / 2 - 12;
     const dishY = y - ph / 2 - 18;
     const isNight = (this.lightingMode === 'night');
+    const isSunset = (this.lightingMode === 'sunset');
 
-    // Vertical mounting pole bolted to counter
-    this.ctx.fillStyle = isNight ? '#334155' : '#64748b';
-    this.ctx.fillRect(dishX - 2.5, dishY + 2, 5, 14);
+    // Flange Base bolted to counter with rivet hardware
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#64748b';
+    this.ctx.fillRect(dishX - 6, dishY + 12, 12, 4);
+    this.ctx.fillStyle = '#06b6d4';
+    this.ctx.fillRect(dishX - 5, dishY + 13, 1.5, 2);
+    this.ctx.fillRect(dishX + 3.5, dishY + 13, 1.5, 2);
 
-    // Swivel tripod bracket arm
-    this.ctx.strokeStyle = isNight ? '#475569' : '#94a3b8';
-    this.ctx.lineWidth = 2;
+    // Heavy-duty Dual-Strut Mounting Mast
+    this.ctx.fillStyle = isNight ? '#334155' : '#94a3b8';
+    this.ctx.fillRect(dishX - 2.5, dishY + 2, 5, 11);
+
+    // Azimuth / Elevation Swivel Gear Hub
+    this.ctx.fillStyle = '#0891b2';
     this.ctx.beginPath();
-    this.ctx.moveTo(dishX, dishY + 6);
-    this.ctx.lineTo(dishX - 6, dishY - 2);
+    this.ctx.arc(dishX, dishY + 2, 3.5, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Telescopic Gimbal Arm angled towards reflector dish
+    this.ctx.strokeStyle = isNight ? '#475569' : '#64748b';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(dishX, dishY + 2);
+    this.ctx.lineTo(dishX - 7, dishY - 5);
     this.ctx.stroke();
 
-    // Solid Parabolic Reflector Dish (Angled up-left towards sky at 35 degrees)
+    // Solid High-Contrast Parabolic Reflector Dish (Angled up-left at 38 degrees)
     this.ctx.save();
-    this.ctx.translate(dishX - 6, dishY - 2);
+    this.ctx.translate(dishX - 7, dishY - 5);
     this.ctx.rotate(-Math.PI * 0.22);
 
-    // Outer Dish Shell / Lip
-    this.ctx.fillStyle = isNight ? '#0b1320' : '#e2e8f0';
+    // Outer Backplate Shell (High contrast against any room lighting)
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#cbd5e1';
     this.ctx.strokeStyle = '#0891b2';
-    this.ctx.lineWidth = 1.5;
+    this.ctx.lineWidth = 1.75;
     this.ctx.beginPath();
-    this.ctx.ellipse(0, 0, 16, 8, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(0, 0, 18, 9, 0, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.stroke();
 
-    // Inner Dish Cavity (Convex parabolic depth)
-    this.ctx.fillStyle = isNight ? '#070c16' : '#f8fafc';
+    // Inner Concave Parabolic Cavity
+    this.ctx.fillStyle = isNight ? '#0f172a' : '#f1f5f9';
     this.ctx.beginPath();
-    this.ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(0, 0, 14, 6.5, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Central Feedhorn Probe (LNB receiver arm)
+    // Concentric Parabolic Depth Rings
+    this.ctx.strokeStyle = isNight ? 'rgba(6, 182, 212, 0.4)' : 'rgba(8, 145, 178, 0.35)';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.ellipse(0, 0, 9, 4, 0, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // Sub-Reflector Support Struts (Converging Tripod)
     this.ctx.strokeStyle = '#06b6d4';
-    this.ctx.lineWidth = 1.5;
+    this.ctx.lineWidth = 1.2;
     this.ctx.beginPath();
-    this.ctx.moveTo(0, 0);
-    this.ctx.lineTo(0, -11);
+    this.ctx.moveTo(-10, 0);
+    this.ctx.lineTo(0, -12);
+    this.ctx.moveTo(10, 0);
+    this.ctx.lineTo(0, -12);
+    this.ctx.moveTo(0, 3);
+    this.ctx.lineTo(0, -12);
     this.ctx.stroke();
 
-    // Feedhorn Receiver Cap
+    // Feedhorn Transceiver (LNB Focus Cap)
     this.ctx.fillStyle = '#38bdf8';
     this.ctx.beginPath();
-    this.ctx.arc(0, -11, 2.8, 0, Math.PI * 2);
+    this.ctx.arc(0, -12, 3, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Active Transmission Status LED
+    const ledGlow = (this.uplinkPulse > 0.05) ? '#22c55e' : (isNight ? '#06b6d4' : '#0284c7');
+    this.ctx.fillStyle = ledGlow;
+    this.ctx.beginPath();
+    this.ctx.arc(0, -12, 1.2, 0, Math.PI * 2);
     this.ctx.fill();
 
     this.ctx.restore();
 
-    // Pulsing Satellite Uplink Radio Waves when pushing to remote
-    const probeX = dishX - 12;
-    const probeY = dishY - 11;
+    // Pulsing Satellite Uplink Radio Waves (Beaming into the sky when pushing to remote)
+    const focalX = dishX - 16;
+    const focalY = dishY - 16;
     if (this.uplinkPulse > 0.05) {
       this.ctx.strokeStyle = `rgba(6, 182, 212, ${this.uplinkPulse})`;
       this.ctx.lineWidth = 1.8;
       const waveOffset = (this.tickCount * 0.8) % 12;
       for (let r = 10 + waveOffset; r <= 36; r += 9) {
         this.ctx.beginPath();
-        this.ctx.arc(probeX, probeY, r, -Math.PI * 0.95, -Math.PI * 0.45);
+        // Symmetrical transmission cone pointing up-left into space
+        this.ctx.arc(focalX, focalY, r, -Math.PI * 0.95, -Math.PI * 0.35);
         this.ctx.stroke();
       }
       this.uplinkPulse -= 0.008;
 
-      if ((this.tickCount % 50 === 0) && this.spawnParticle) {
-        this.spawnParticle(probeX - 4, probeY - 16, 'stamp', 'PUSHED', '#06b6d4');
+      if ((this.tickCount % 48 === 0) && this.spawnParticle) {
+        this.spawnParticle(focalX - 4, focalY - 14, 'stamp', 'PUSHED', '#06b6d4');
       }
 
-      if ((this.tickCount % 42 === 0) && window.chiptuneAudio) {
+      if ((this.tickCount % 40 === 0) && window.chiptuneAudio) {
         window.chiptuneAudio.playSatellitePing();
       }
     }
@@ -1808,15 +1902,24 @@ class OfficeSimulator {
 
   drawSeatedAvatar(ag, deskX, deskY, palette) {
     const isSelected = (ag.id === this.selectedAgentId);
+    const isError = (ag.state === "error");
     const isTyping = (ag.state === "working");
-    const px = deskX;
+    const flusterShake = isError ? (Math.sin(this.tickCount * 0.9) * 2.6) : 0;
+    const px = deskX + flusterShake;
     const py = deskY - 14;
 
-    // Head Bob (Subtle groove to headphone music when in the coding zone)
-    const headGroove = isTyping ? (Math.sin(this.tickCount * 0.22) * 1.0) : 0;
+    // Head Bob (or flustered shake when in error)
+    const headGroove = isError ? (Math.cos(this.tickCount * 0.8) * 1.5) : (isTyping ? (Math.sin(this.tickCount * 0.22) * 1.0) : 0);
 
-    // Selection Halo
-    if (isSelected) {
+    // Error Warning Ring or Selection Halo
+    if (isError) {
+      const errorPulse = 0.5 + Math.sin(this.tickCount * 0.3) * 0.3;
+      this.ctx.strokeStyle = `rgba(239, 68, 68, ${errorPulse})`;
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py - 10 + headGroove, 25, 0, Math.PI * 2);
+      this.ctx.stroke();
+    } else if (isSelected) {
       this.ctx.strokeStyle = '#3b82f6';
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
@@ -1851,10 +1954,23 @@ class OfficeSimulator {
     this.ctx.roundRect(px - 9, py - 31 + headGroove, 18, 8, [5, 5, 0, 0]);
     this.ctx.fill();
 
-    // Focused Eyes (Looking toward desk and code monitors)
-    this.ctx.fillStyle = '#0f172a';
-    this.ctx.fillRect(px - 4, py - 19 + headGroove, 2.5, 3);
-    this.ctx.fillRect(px + 2, py - 19 + headGroove, 2.5, 3);
+    // Eyes: Dazed 'X' crossbars when in error, focused pupils otherwise
+    if (isError) {
+      this.ctx.strokeStyle = '#ef4444';
+      this.ctx.lineWidth = 1.6;
+      // Left eye X
+      this.ctx.beginPath();
+      this.ctx.moveTo(px - 5, py - 20 + headGroove); this.ctx.lineTo(px - 1.5, py - 16.5 + headGroove);
+      this.ctx.moveTo(px - 1.5, py - 20 + headGroove); this.ctx.lineTo(px - 5, py - 16.5 + headGroove);
+      // Right eye X
+      this.ctx.moveTo(px + 1.5, py - 20 + headGroove); this.ctx.lineTo(px + 5, py - 16.5 + headGroove);
+      this.ctx.moveTo(px + 5, py - 20 + headGroove); this.ctx.lineTo(px + 1.5, py - 16.5 + headGroove);
+      this.ctx.stroke();
+    } else {
+      this.ctx.fillStyle = '#0f172a';
+      this.ctx.fillRect(px - 4, py - 19 + headGroove, 2.5, 3);
+      this.ctx.fillRect(px + 2, py - 19 + headGroove, 2.5, 3);
+    }
 
     // Studio Audio Headphones (Band curved across top of hair)
     this.ctx.strokeStyle = (this.lightingMode === 'night') ? '#475569' : '#1e293b';
@@ -1875,23 +1991,38 @@ class OfficeSimulator {
     this.ctx.fillRect(px - 10.5, py - 20 + headGroove, 2, 2);
     this.ctx.fillRect(px + 8.5, py - 20 + headGroove, 2, 2);
 
-    // Typing Arms extending forward onto keyboard with rapid mechanical cadence
-    const leftArmBob = isTyping ? (Math.sin(this.tickCount * 0.85) * 2.0) : 0;
-    const rightArmBob = isTyping ? (-Math.sin(this.tickCount * 0.85 + 0.3) * 2.0) : 0;
+    if (isError) {
+      // Hands held up to head/face in flustered dismay
+      this.ctx.fillStyle = ag.color;
+      this.ctx.beginPath();
+      this.ctx.roundRect(px - 13, py - 8, 4.5, 12, 2);
+      this.ctx.roundRect(px + 8.5, py - 8, 4.5, 12, 2);
+      this.ctx.fill();
 
-    // Sleeves
-    this.ctx.fillStyle = ag.color;
-    this.ctx.beginPath();
-    this.ctx.roundRect(px - 13, py - 4, 4.5, 12 + leftArmBob, 2);
-    this.ctx.roundRect(px + 8.5, py - 4, 4.5, 12 + rightArmBob, 2);
-    this.ctx.fill();
+      this.ctx.fillStyle = '#fed7aa';
+      this.ctx.beginPath();
+      this.ctx.arc(px - 10.5, py - 10, 3, 0, Math.PI * 2);
+      this.ctx.arc(px + 10.5, py - 10, 3, 0, Math.PI * 2);
+      this.ctx.fill();
+    } else {
+      // Typing Arms extending forward onto keyboard with rapid mechanical cadence
+      const leftArmBob = isTyping ? (Math.sin(this.tickCount * 0.85) * 2.0) : 0;
+      const rightArmBob = isTyping ? (-Math.sin(this.tickCount * 0.85 + 0.3) * 2.0) : 0;
 
-    // Hands on Keyboard
-    this.ctx.fillStyle = '#fed7aa';
-    this.ctx.beginPath();
-    this.ctx.arc(px - 10.5, py + 9 + leftArmBob, 2.8, 0, Math.PI * 2);
-    this.ctx.arc(px + 10.5, py + 9 + rightArmBob, 2.8, 0, Math.PI * 2);
-    this.ctx.fill();
+      // Sleeves
+      this.ctx.fillStyle = ag.color;
+      this.ctx.beginPath();
+      this.ctx.roundRect(px - 13, py - 4, 4.5, 12 + leftArmBob, 2);
+      this.ctx.roundRect(px + 8.5, py - 4, 4.5, 12 + rightArmBob, 2);
+      this.ctx.fill();
+
+      // Hands on Keyboard
+      this.ctx.fillStyle = '#fed7aa';
+      this.ctx.beginPath();
+      this.ctx.arc(px - 10.5, py + 9 + leftArmBob, 2.8, 0, Math.PI * 2);
+      this.ctx.arc(px + 10.5, py + 9 + rightArmBob, 2.8, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
 
     // Emit live code tokens when in flow
     if (isTyping && (this.tickCount % 50 === 0) && this.spawnParticle) {
@@ -2232,6 +2363,7 @@ class OfficeSimulator {
 
   drawWalkingAvatar(ag, palette) {
     const isSelected = (ag.id === this.selectedAgentId);
+    const isError = (ag.state === "error");
     const isArmchairSeated = (ag.state === "coffee" && Math.hypot(ag.x - 75, ag.y - 355) < 18);
     const isSofaSeated = (ag.state === "coffee" && Math.hypot(ag.x - 240, ag.y - 355) < 22);
     const isLoungeSeated = isArmchairSeated || isSofaSeated;
@@ -2244,11 +2376,19 @@ class OfficeSimulator {
     const walkBob = isWalking ? (Math.abs(Math.sin(this.tickCount * 0.35)) * 2.5) : 0;
     const legSwing = walkCadence * 3.5;
 
-    const px = Math.round(ag.x);
+    const flusterShake = isError ? (Math.sin(this.tickCount * 0.9) * 2.6) : 0;
+    const px = Math.round(ag.x + flusterShake);
     const py = Math.round(ag.y - walkBob);
 
-    // Selection Halo
-    if (isSelected) {
+    // Error Ring or Selection Halo
+    if (isError) {
+      const errorPulse = 0.5 + Math.sin(this.tickCount * 0.3) * 0.3;
+      this.ctx.strokeStyle = `rgba(239, 68, 68, ${errorPulse})`;
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py - 4, 22, 0, Math.PI * 2);
+      this.ctx.stroke();
+    } else if (isSelected) {
       this.ctx.strokeStyle = '#3b82f6';
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
@@ -2402,6 +2542,16 @@ class OfficeSimulator {
         this.ctx.arc(px + 11, py - 5, 1.5, 0, Math.PI * 2);
         this.ctx.fill();
       }
+    } else if (isError) {
+      // Flustered arms thrown up to head
+      this.ctx.fillStyle = ag.color;
+      this.ctx.fillRect(px - 12, py - 13, 4, 11);
+      this.ctx.fillRect(px + 8, py - 13, 4, 11);
+      this.ctx.fillStyle = '#fed7aa';
+      this.ctx.beginPath();
+      this.ctx.arc(px - 10, py - 15, 2.8, 0, Math.PI * 2);
+      this.ctx.arc(px + 10, py - 15, 2.8, 0, Math.PI * 2);
+      this.ctx.fill();
     } else if (isWalking) {
       // Natural walking arm swing cadence
       this.ctx.fillStyle = ag.color;
@@ -2425,14 +2575,26 @@ class OfficeSimulator {
     this.ctx.roundRect(px - 8, py - 26, 16, 16, 4);
     this.ctx.fill();
 
-    // Eyes (with gentle sipping squint when drinking)
-    this.ctx.fillStyle = '#0f172a';
+    // Eyes: Dazed 'X' crossbars when in error, focused pupils otherwise
     const lookX = isAtServerLab ? -1.5 : (isAtPostOffice ? 1.5 : ((ag.targetX > ag.x) ? 1.5 : ((ag.targetX < ag.x) ? -1.5 : 0)));
-    if (isSipping) {
+    if (isError) {
+      this.ctx.strokeStyle = '#ef4444';
+      this.ctx.lineWidth = 1.6;
+      // Left eye X
+      this.ctx.beginPath();
+      this.ctx.moveTo(px - 5, py - 19); this.ctx.lineTo(px - 1.5, py - 15.5);
+      this.ctx.moveTo(px - 1.5, py - 19); this.ctx.lineTo(px - 5, py - 15.5);
+      // Right eye X
+      this.ctx.moveTo(px + 1.5, py - 19); this.ctx.lineTo(px + 5, py - 15.5);
+      this.ctx.moveTo(px + 5, py - 19); this.ctx.lineTo(px + 1.5, py - 15.5);
+      this.ctx.stroke();
+    } else if (isSipping) {
       // Happy squint while taking a warm sip
+      this.ctx.fillStyle = '#0f172a';
       this.ctx.fillRect(px - 4, py - 17, 2.5, 1.5);
       this.ctx.fillRect(px + 2, py - 17, 2.5, 1.5);
     } else {
+      this.ctx.fillStyle = '#0f172a';
       this.ctx.fillRect(px - 4 + lookX, py - 18, 2.5, 3);
       this.ctx.fillRect(px + 2 + lookX, py - 18, 2.5, 3);
     }
@@ -2458,33 +2620,67 @@ class OfficeSimulator {
       }
     }
 
+    const isError = (ag.state === "error");
+    const isNight = (this.lightingMode === 'night');
+
     this.ctx.font = '600 11px sans-serif';
-    const txt = ag.speech.length > 32 ? ag.speech.slice(0, 30) + '...' : ag.speech;
+    const txt = ag.speech.length > 34 ? ag.speech.slice(0, 32) + '...' : ag.speech;
     const tw = this.ctx.measureText(txt).width;
-    const bw = Math.max(tw + 18, 90);
+    const textOffset = isError ? 22 : 9;
+    const bw = Math.max(tw + textOffset + 14, 90);
     const bx = Math.max(16, Math.min(px - bw / 2, this.width - bw - 16));
     const by = py - 46;
 
-    this.ctx.fillStyle = palette.bubbleBg;
-    this.ctx.strokeStyle = palette.bubbleBorder;
-    this.ctx.lineWidth = 1;
+    // Bubble Background & Border (Crimson alert on failure, theme-adaptive otherwise)
+    this.ctx.fillStyle = isError ? (isNight ? 'rgba(239, 68, 68, 0.22)' : '#fef2f2') : palette.bubbleBg;
+    this.ctx.strokeStyle = isError ? '#ef4444' : palette.bubbleBorder;
+    this.ctx.lineWidth = isError ? 1.5 : 1;
     this.ctx.beginPath();
     this.ctx.roundRect(bx, by, bw, 22, 6);
     this.ctx.fill();
     this.ctx.stroke();
 
-    this.ctx.fillStyle = palette.bubbleText;
-    this.ctx.fillText(txt, bx + 9, by + 15);
+    // Vector warning triangle on error (100% zero-emoji)
+    if (isError) {
+      this.ctx.fillStyle = '#ef4444';
+      this.ctx.beginPath();
+      this.ctx.moveTo(bx + 11, by + 5);
+      this.ctx.lineTo(bx + 17, by + 16);
+      this.ctx.lineTo(bx + 5, by + 16);
+      this.ctx.closePath();
+      this.ctx.fill();
 
-    this.ctx.fillStyle = palette.bubbleBg;
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillRect(bx + 10.5, by + 8, 1, 4.5);
+      this.ctx.fillRect(bx + 10.5, by + 14, 1, 1);
+    }
+
+    this.ctx.fillStyle = isError ? (isNight ? '#fca5a5' : '#b91c1c') : palette.bubbleText;
+    this.ctx.fillText(txt, bx + textOffset, by + 15);
+
+    // Tail
+    this.ctx.fillStyle = isError ? (isNight ? 'rgba(239, 68, 68, 0.22)' : '#fef2f2') : palette.bubbleBg;
     this.ctx.beginPath();
     this.ctx.moveTo(px, by + 22);
     this.ctx.lineTo(px - 4, by + 27);
     this.ctx.lineTo(px + 4, by + 22);
     this.ctx.fill();
 
-    // Drift Warning Alert Badge (Market-leading feature from AgentGUI - ETH Zurich)
-    if (ag.isDrifting) {
+    // Error Pill Badge above Bubble
+    if (isError) {
+      const ew = 94;
+      const eh = 17;
+      const ex = Math.max(16, Math.min(px - ew / 2, this.width - ew - 16));
+      const ey = by - 22;
+      this.ctx.fillStyle = '#ef4444';
+      this.ctx.beginPath();
+      this.ctx.roundRect(ex, ey, ew, eh, 4);
+      this.ctx.fill();
+
+      this.ctx.font = 'bold 8.5px sans-serif';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillText("EXECUTION FAILED", ex + 8, ey + 11.5);
+    } else if (ag.isDrifting) {
       const dw = 114;
       const dh = 18;
       const dx = Math.max(16, Math.min(px - dw / 2, this.width - dw - 16));
@@ -2512,21 +2708,21 @@ class OfficeSimulator {
     }
     const angle = (type === 'confetti')
       ? (Math.random() * Math.PI)
-      : ((Math.random() * Math.PI * 0.6) - (Math.PI * 0.8));
-    const speed = (type === 'confetti') ? (0.6 + Math.random() * 1.4) : (0.4 + Math.random() * 0.8);
+      : ((type === 'sweat') ? (Math.random() * 0.4 - 0.2 - Math.PI * 0.5) : ((Math.random() * Math.PI * 0.6) - (Math.PI * 0.8)));
+    const speed = (type === 'confetti') ? (0.6 + Math.random() * 1.4) : ((type === 'sweat') ? (0.8 + Math.random() * 0.6) : (0.4 + Math.random() * 0.8));
     this.particles.push({
       x,
       y,
-      vx: (type === 'confetti') ? (Math.random() * 2.4 - 1.2) : Math.cos(angle) * speed,
-      vy: (type === 'confetti') ? (0.6 + Math.random() * 1.2) : (Math.sin(angle) * speed - 0.35),
+      vx: (type === 'confetti') ? (Math.random() * 2.4 - 1.2) : ((type === 'sweat') ? (Math.random() * 1.0 - 0.5) : Math.cos(angle) * speed),
+      vy: (type === 'confetti') ? (0.6 + Math.random() * 1.2) : ((type === 'sweat') ? (0.5 + Math.random() * 0.8) : (Math.sin(angle) * speed - 0.35)),
       alpha: 1.0,
-      decay: (type === 'confetti') ? (0.005 + Math.random() * 0.005) : (0.016 + Math.random() * 0.014),
+      decay: (type === 'confetti') ? (0.005 + Math.random() * 0.005) : ((type === 'sweat') ? 0.025 : (0.016 + Math.random() * 0.014)),
       type,
       text,
       color,
       rotation: Math.random() * Math.PI * 2,
       rotSpeed: (Math.random() - 0.5) * 0.18,
-      size: (type === 'steam') ? 2.5 : ((type === 'spark') ? 3 : ((type === 'confetti') ? (3.5 + Math.random() * 2.5) : 8.5))
+      size: (type === 'steam') ? 2.5 : ((type === 'spark') ? 3 : ((type === 'sweat') ? 2.5 : ((type === 'smoke') ? 3.5 : ((type === 'confetti') ? (3.5 + Math.random() * 2.5) : 8.5))))
     });
   }
 
@@ -2576,6 +2772,18 @@ class OfficeSimulator {
         this.ctx.beginPath();
         this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         this.ctx.fill();
+      } else if (p.type === 'sweat') {
+        p.vy += 0.04;
+        this.ctx.fillStyle = p.color || '#38bdf8';
+        this.ctx.beginPath();
+        this.ctx.ellipse(p.x, p.y, 1.8, 3, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+      } else if (p.type === 'smoke') {
+        p.size += 0.08;
+        this.ctx.fillStyle = 'rgba(71, 85, 105, 0.45)';
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
       } else if (p.type === 'check') {
         this.ctx.strokeStyle = '#22c55e';
         this.ctx.lineWidth = 1.6;
@@ -2614,6 +2822,28 @@ class OfficeSimulator {
 
   animate() {
     this.tickCount++;
+
+    // Countdown error animation timers & spawn fluster particles
+    this.agents.forEach(ag => {
+      if (ag.state === "error" && ag.errorTimer > 0) {
+        ag.errorTimer--;
+        if (ag.errorTimer % 20 === 0 && this.spawnParticle) {
+          const side = (ag.errorTimer % 40 === 0) ? -7 : 7;
+          this.spawnParticle(ag.x + side, ag.y - 24, 'sweat', '', '#38bdf8');
+        }
+        if (ag.errorTimer % 36 === 0 && this.spawnParticle) {
+          this.spawnParticle(ag.x + (Math.random() - 0.5) * 12, ag.y - 14, 'smoke', '', 'rgba(71, 85, 105, 0.45)');
+        }
+        if (ag.errorTimer === 0) {
+          ag.state = "working";
+          ag.speech = "Investigating issue and retrying...";
+          ag.currentTask = "Self-Healing Recovery";
+          this.updateCockpitUI();
+          this.updateRosterUI();
+        }
+      }
+    });
+
     const palette = this.atmospheres[this.lightingMode] || this.atmospheres.day;
 
     // 1. Draw Hardwood Floor
