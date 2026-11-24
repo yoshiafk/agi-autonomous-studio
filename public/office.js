@@ -510,7 +510,7 @@ class OfficeSimulator {
               </div>
               <div class="truncate">
                 <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Action Target</span>
-                <span class="font-semibold truncate block font-mono text-indigo-600 dark:text-indigo-400">${ag.currentTask || 'Idle in Studio'}</span>
+                <span class="font-semibold truncate block font-mono" style="color: var(--accent-primary);">${ag.currentTask || 'Idle in Studio'}</span>
               </div>
             </div>
 

@@ -24,13 +24,13 @@
       </div>
       <div>
         <div class="flex items-center gap-2">
-          <span class="font-bold text-sm">Antigravity Studio</span>
-          <span id="conn-pill" class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="font-bold text-sm" style="color: var(--text-primary);">Antigravity Studio</span>
+          <span id="conn-pill" class="status-pill status-live">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span id="conn-text">LIVE</span>
           </span>
         </div>
-        <p class="text-[11px] text-slate-500">Autonomous Multi-Agent Workspace</p>
+        <p class="text-[11px]" style="color: var(--text-muted);">Autonomous Multi-Agent Workspace</p>
       </div>
     </div>
 
@@ -146,35 +146,35 @@
       <div class="studio-card p-3.5 flex flex-col gap-2 shrink-0">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-800/40">CURRENT FOCUS</span>
-            <span id="active-project-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">IDLE / READY</span>
+            <span class="status-pill status-focus">CURRENT FOCUS</span>
+            <span id="active-project-badge" class="status-pill status-idle">IDLE / READY</span>
           </div>
-          <div class="text-[11px] font-mono text-slate-500">
-            Steps: <strong id="step-counter" class="text-indigo-600 dark:text-indigo-400 font-bold">0</strong>
+          <div class="text-[11px] font-mono" style="color: var(--text-muted);">
+            Steps: <strong id="step-counter" style="color: var(--accent-primary);" class="font-bold">0</strong>
           </div>
         </div>
         <div class="flex items-start gap-2.5">
-          <span class="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">
+          <span class="shrink-0 mt-0.5" style="color: var(--accent-primary);">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="6"/><line x1="12" x2="12" y1="18" y2="22"/></svg>
           </span>
-          <h2 id="focus-banner-text" class="text-sm font-bold leading-snug line-clamp-2">
+          <h2 id="focus-banner-text" class="text-sm font-bold leading-snug line-clamp-2" style="color: var(--text-primary);">
             Monitoring active workspace...
           </h2>
         </div>
-        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-          <span class="truncate">Workspace: <strong id="active-project-name">Detecting...</strong></span>
-          <span id="stream-status" class="font-mono text-[10px] text-slate-400">Connected</span>
+        <div class="pt-2 flex items-center justify-between text-[11px]" style="border-top: 1px solid var(--border-card); color: var(--text-muted);">
+          <span class="truncate">Workspace: <strong id="active-project-name" style="color: var(--text-primary);">Detecting...</strong></span>
+          <span id="stream-status" class="font-mono text-[10px]" style="color: var(--text-muted);">Connected</span>
         </div>
       </div>
 
       <!-- Live Mission Roadmap Pipeline -->
       <div id="roadmap-container" class="studio-card p-3 flex flex-col gap-2 shrink-0 hidden">
-        <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800 text-xs">
-          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5 text-slate-500 text-[11px]">
+        <div class="flex items-center justify-between pb-1.5 text-xs" style="border-bottom: 1px solid var(--border-card);">
+          <span class="font-bold uppercase tracking-wider flex items-center gap-1.5 text-[11px]" style="color: var(--text-secondary);">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             Mission Roadmap
           </span>
-          <span class="text-xs font-medium font-mono" id="roadmap-summary">0 / 0 Completed</span>
+          <span class="text-xs font-medium font-mono" id="roadmap-summary" style="color: var(--text-muted);">0 / 0 Completed</span>
         </div>
         <div id="roadmap-steps" class="flex flex-col gap-1.5 overflow-y-auto max-h-36 pr-1">
           <!-- Rendered dynamically by app.js as vertical checklist -->
@@ -183,15 +183,15 @@
 
       <!-- Live Execution Feed (Flex-1 scrollable container) -->
       <div class="studio-card p-3.5 flex-1 flex flex-col gap-2 min-h-0 overflow-hidden shadow-sm">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 text-xs shrink-0">
+        <div class="flex items-center justify-between pb-2 text-xs shrink-0" style="border-bottom: 1px solid var(--border-card);">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="font-bold uppercase tracking-wider text-slate-500 text-[11px]">Execution Feed</span>
+            <span class="font-bold uppercase tracking-wider text-[11px]" style="color: var(--text-secondary);">Execution Feed</span>
           </div>
-          <span class="text-[10px] font-mono text-slate-400">Live Agent Stream</span>
+          <span class="text-[10px] font-mono" style="color: var(--text-muted);">Live Agent Stream</span>
         </div>
         <div id="action-feed" class="flex-1 space-y-2 overflow-y-auto pr-1">
-          <div class="text-slate-400 text-xs italic p-4 text-center">
+          <div class="text-xs italic p-4 text-center" style="color: var(--text-muted);">
             Waiting for agent actions...
           </div>
         </div>

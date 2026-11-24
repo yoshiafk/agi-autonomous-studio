@@ -70,6 +70,8 @@ function initAtmosphereControls() {
     officeSim.setLightingMode(mode);
     document.body.classList.remove('theme-day', 'theme-sunset', 'theme-night');
     document.body.classList.add(`theme-${effectiveTheme}`);
+    const isDark = effectiveTheme === 'night' || effectiveTheme === 'sunset';
+    document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('antigravity_lighting_mode', mode);
   };
 
@@ -250,7 +252,7 @@ function onConversationIdle() {
   }
   const badgeEl = document.getElementById('active-project-badge');
   if (badgeEl) {
-    badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
+    badgeEl.className = "status-pill status-idle";
     badgeEl.textContent = "IDLE / READY";
   }
   if (officeSim) {
@@ -294,10 +296,10 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
   if (nameEl) nameEl.textContent = projectName || "Workspace";
   if (badgeEl) {
     if (isActive) {
-      badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
+      badgeEl.className = "status-pill status-working";
       badgeEl.textContent = "WORKING";
     } else {
-      badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200";
+      badgeEl.className = "status-pill status-idle";
       badgeEl.textContent = "IDLE / READY";
     }
   }
@@ -742,12 +744,12 @@ function renderFileCard(filePath, action) {
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
         <span class="feed-badge">${action.toUpperCase()}</span>
-        <span class="font-bold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[200px]">${fileName}</span>
-        <span class="px-1 py-0.2 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500">${ext}</span>
+        <span class="font-bold text-xs truncate max-w-[200px]" style="color: var(--text-primary);">${fileName}</span>
+        <span class="feed-badge text-[9px] font-mono">${ext}</span>
       </div>
-      <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
+      <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div class="text-[11px] font-mono text-slate-500 truncate">
+    <div class="text-[11px] font-mono truncate" style="color: var(--text-muted);">
       ${filePath}
     </div>
   `;
@@ -764,11 +766,11 @@ function renderResearchCard(toolName, query) {
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
         <span class="feed-badge">DOCS</span>
-        <span class="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[220px]">${toolName}</span>
+        <span class="font-semibold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">${toolName}</span>
       </div>
-      <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
+      <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
     </div>
-    <div class="text-xs text-slate-600 dark:text-slate-400 italic truncate">
+    <div class="text-xs italic truncate" style="color: var(--text-secondary);">
       "${query}"
     </div>
   `;
@@ -781,10 +783,10 @@ function renderThinkingCard(thoughtSnippet) {
 
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('activity', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-start gap-2 bg-slate-50/50 dark:bg-slate-900/50";
+  card.className = "feed-card flex items-start gap-2";
   card.innerHTML = `
     <span class="shrink-0 mt-0.5">${iconSvg}</span>
-    <div class="truncate text-xs text-slate-600 dark:text-slate-400 italic">
+    <div class="truncate text-xs italic" style="color: var(--text-secondary);">
       ${thoughtSnippet}...
     </div>
   `;
@@ -797,13 +799,13 @@ function renderFocusCard(focusText) {
 
   const iconSvg = typeof renderIcon === 'function' ? renderIcon('target', 'w-3.5 h-3.5 text-indigo-500') : '';
   const card = document.createElement('div');
-  card.className = "feed-card flex items-center justify-between gap-2 border border-indigo-200/50 bg-indigo-50/20 dark:border-indigo-800/40 dark:bg-indigo-950/20";
+  card.className = "feed-card flex items-center justify-between gap-2";
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate">
       <span class="shrink-0">${iconSvg}</span>
-      <span class="text-xs font-semibold text-indigo-900 dark:text-indigo-300 truncate">${focusText}</span>
+      <span class="text-xs font-semibold truncate" style="color: var(--accent-primary);">${focusText}</span>
     </div>
-    <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
+    <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
   `;
   appendCard(feed, card);
 }
@@ -816,13 +818,13 @@ function renderGenericCard(title, details, borderClass = "", iconName = "activit
   const card = document.createElement('div');
   card.className = `feed-card flex items-center justify-between gap-2.5 ${borderClass}`;
   card.innerHTML = `
-    <div class="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300">
+    <div class="flex items-center gap-2 truncate text-xs" style="color: var(--text-secondary);">
       ${iconSvg}
       <div class="truncate">
-        <strong class="font-semibold text-slate-900 dark:text-slate-100">${title}:</strong> ${details}
+        <strong class="font-semibold" style="color: var(--text-primary);">${title}:</strong> ${details}
       </div>
     </div>
-    <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date().toLocaleTimeString()}</span>
+    <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
   `;
   appendCard(feed, card);
 }
