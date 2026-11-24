@@ -65,7 +65,8 @@ def read_artifact_file(data_dir: Path, conv_id: str, filename: str) -> str | Non
             if not resolved.is_relative_to(resolved_brain):
                 return None
         except AttributeError:
-            if not str(resolved).startswith(str(resolved_brain)):
+            brain_str = str(resolved_brain).rstrip(os.sep) + os.sep
+            if str(resolved) != str(resolved_brain) and not str(resolved).startswith(brain_str):
                 return None
 
         if not resolved.is_file():

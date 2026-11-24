@@ -32,6 +32,14 @@ class ChiptuneAudio {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioCtx();
+        // Master Dynamics Compressor to prevent digital clipping across simultaneous sounds
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+        this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(8, this.ctx.currentTime);
+        this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+        this.compressor.connect(this.ctx.destination);
       } catch (err) {
         return false;
       }
@@ -73,7 +81,14 @@ class ChiptuneAudio {
       gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.035);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.compressor || this.ctx.destination);
+
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch (err) {}
+      };
 
       osc.start();
       osc.stop(this.ctx.currentTime + 0.04);
@@ -99,7 +114,14 @@ class ChiptuneAudio {
         gain.gain.exponentialRampToValueAtTime(0.001, st + 0.12);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.compressor || this.ctx.destination);
+
+        osc.onended = () => {
+          try {
+            osc.disconnect();
+            gain.disconnect();
+          } catch (err) {}
+        };
 
         osc.start(st);
         osc.stop(st + 0.13);
@@ -126,7 +148,14 @@ class ChiptuneAudio {
       gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.compressor || this.ctx.destination);
+
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch (err) {}
+      };
 
       osc.start();
       osc.stop(this.ctx.currentTime + 0.23);
@@ -162,7 +191,15 @@ class ChiptuneAudio {
 
       noise.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.compressor || this.ctx.destination);
+
+      noise.onended = () => {
+        try {
+          noise.disconnect();
+          filter.disconnect();
+          gain.disconnect();
+        } catch (err) {}
+      };
 
       noise.start();
       noise.stop(this.ctx.currentTime + 0.18);
@@ -193,7 +230,14 @@ class ChiptuneAudio {
         gain.gain.exponentialRampToValueAtTime(0.001, st + 0.06);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.compressor || this.ctx.destination);
+
+        osc.onended = () => {
+          try {
+            osc.disconnect();
+            gain.disconnect();
+          } catch (err) {}
+        };
 
         osc.start(st);
         osc.stop(st + 0.065);

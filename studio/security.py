@@ -12,13 +12,15 @@ from pathlib import Path
 SECRET_PATTERNS = [
     (re.compile(r'AIza[0-9A-Za-z\-_]{30,45}'), '[REDACTED_GEMINI_KEY]'),
     (re.compile(r'sk-ant-[a-zA-Z0-9\-_]{32,}'), '[REDACTED_ANTHROPIC_KEY]'),
-    (re.compile(r'sk-[a-zA-Z0-9]{32,}'), '[REDACTED_API_KEY]'),
-    (re.compile(r'ghp_[a-zA-Z0-9]{36}'), '[REDACTED_GITHUB_TOKEN]'),
+    (re.compile(r'sk-(?:proj-|svcacct-)?[a-zA-Z0-9\-_]{32,}'), '[REDACTED_API_KEY]'),
+    (re.compile(r'(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,}'), '[REDACTED_GITHUB_TOKEN]'),
+    (re.compile(r'github_pat_[a-zA-Z0-9_]{30,}'), '[REDACTED_GITHUB_PAT]'),
     (re.compile(r'Bearer\s+[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*'), 'Bearer [REDACTED_JWT]'),
-    (re.compile(r'(["\']?(?:password|secret|token|apiKey|api_key|authToken|auth_token)["\']?\s*[:=]\s*["\'])([^"\'\s,;]{4,})(["\'])', re.IGNORECASE), r'\1[REDACTED]\3'),
+    (re.compile(r'(["\']?(?:password|secret|token|apiKey|api_key|authToken|auth_token)["\']?\s*[:=]\s*["\']?)([^"\'\s,;]{4,})(["\']?)', re.IGNORECASE), r'\1[REDACTED]\3'),
 ]
 
 IDENTIFIER_REGEX = re.compile(r'^[a-zA-Z0-9_\-\.]{1,128}$')
+DOS_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)}
 
 def validate_host_header(host_header: str, port: int, allowed_extra: list = None) -> bool:
     """
@@ -53,10 +55,10 @@ def validate_host_header(host_header: str, port: int, allowed_extra: list = None
 
     return True
 
-def get_allowed_cors_origin(origin_header: str) -> str:
+def get_allowed_cors_origin(origin_header: str) -> str | None:
     """
-    Returns the specific allowed CORS origin if origin matches loopback or null.
-    Never returns wildcard '*' for local state-accessing APIs.
+    Returns the specific allowed CORS origin if origin matches loopback.
+    Never returns wildcard '*' or 'null' for local state-accessing APIs.
     """
     if not origin_header:
         return None
@@ -76,25 +78,25 @@ def get_allowed_cors_origin(origin_header: str) -> str:
         if origin_clean == prefix or origin_clean.startswith(prefix + ":"):
             return origin_header.strip()
 
-    # Allow local file:// origins (browsers report Origin: null)
-    if origin_clean == "null":
-        return "null"
-
     return None
 
-def sanitize_identifier(identifier: str) -> str:
+def sanitize_identifier(identifier: str) -> str | None:
     """
     Sanitizes conversation IDs, project names, and parameters.
-    Blocks directory traversal ('..', '/', '\\') and control characters.
+    Blocks directory traversal ('..', '/', '\\'), Windows DOS device names, and control characters.
     """
     if not identifier or not isinstance(identifier, str):
         return None
 
     cleaned = identifier.strip()
-    if ".." in cleaned or "/" in cleaned or "\\" in cleaned:
+    if cleaned == "." or ".." in cleaned or "/" in cleaned or "\\" in cleaned:
         return None
 
     if not IDENTIFIER_REGEX.match(cleaned):
+        return None
+
+    base_name = cleaned.split(".")[0].upper()
+    if base_name in DOS_RESERVED:
         return None
 
     return cleaned
@@ -109,12 +111,15 @@ def is_safe_path(target_path: Path, allowed_roots: list) -> bool:
             if not root:
                 continue
             resolved_root = Path(root).resolve()
-            # Python 3.9+ is_relative_to or fallback
+            # Python 3.9+ is_relative_to or boundary check fallback
             try:
                 if resolved_target.is_relative_to(resolved_root):
                     return True
             except AttributeError:
-                if str(resolved_target).startswith(str(resolved_root)):
+                import os
+                root_str = str(resolved_root).rstrip(os.sep) + os.sep
+                target_str = str(resolved_target)
+                if target_str == str(resolved_root) or target_str.startswith(root_str):
                     return True
         return False
     except Exception:

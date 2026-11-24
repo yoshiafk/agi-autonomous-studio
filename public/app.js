@@ -4,6 +4,17 @@
  * Full synchronization with live session steps, roadmap pipeline, and agent states.
  */
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
 let officeSim = null;
 let currentProjectId = null;
 let currentConversationId = null;
@@ -41,9 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 2000);
 
-  // Inactivity watchdog: if agents were busy but no actions arrive for 8s, transition to idle rest
+  // Inactivity watchdog: if agents were busy but no actions arrive for 30s (and no steps in progress), transition to idle rest
   setInterval(() => {
-    if (isConversationBusy && (Date.now() - lastAgentActionTime > 8000)) {
+    const hasActiveSteps = cachedMissionSteps && Array.isArray(cachedMissionSteps) && cachedMissionSteps.some(s => s.status === "in_progress");
+    if (isConversationBusy && !hasActiveSteps && (Date.now() - lastAgentActionTime > 30000)) {
       isConversationBusy = false;
       onConversationIdle();
     }
@@ -886,7 +898,9 @@ function handleInitialState(data) {
 
   // 4. Render recent steps into feed & set specialist states in 1 frame (<15ms)
   const feed = document.getElementById('action-feed');
-  if (feed) feed.innerHTML = "";
+  if (feed && (!currentConversationId || data.conversation_id !== currentConversationId)) {
+    feed.innerHTML = "";
+  }
 
   if (data.recent_steps && Array.isArray(data.recent_steps)) {
     data.recent_steps.forEach(st => {
@@ -995,6 +1009,8 @@ function connectToEventStream(conversationId, isActive = true) {
 }
 
 function handleStepEvent(step, isHydrate = false) {
+  if (!step || typeof step !== 'object') return;
+
   if (!isHydrate) {
     totalStepsCount++;
     const counter = document.getElementById('step-counter');
@@ -1044,6 +1060,14 @@ function handleStepEvent(step, isHydrate = false) {
   if (step.tool_calls && step.tool_calls.length > 0) {
     lastAgentActionTime = Date.now();
     isConversationBusy = true;
+
+    // Reactivate studio status badge if it was idling
+    const activeBadge = document.getElementById('active-project-badge');
+    if (activeBadge && activeBadge.textContent.includes("IDLE")) {
+      activeBadge.className = "status-pill status-working";
+      activeBadge.textContent = "WORKING";
+    }
+
     step.tool_calls.forEach(tc => {
       const toolName = tc.name || "tool";
       const args = tc.args || {};
@@ -1216,8 +1240,8 @@ function renderCommandCard(command, summary) {
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="${badge.class}">${badge.text}</span>
-        <span class="font-semibold text-xs truncate max-w-[220px]">${summary}</span>
+        <span class="${badge.class}">${escapeHtml(badge.text)}</span>
+        <span class="font-semibold text-xs truncate max-w-[220px]">${escapeHtml(summary)}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <button class="feed-action-btn copy-cmd-btn" title="Copy exact command">Copy</button>
@@ -1225,7 +1249,7 @@ function renderCommandCard(command, summary) {
       </div>
     </div>
     <div class="cmd-box truncate cursor-pointer hover:border-[var(--accent-primary)] transition" title="Click to view full command in inspector">
-      $ ${command}
+      $ ${escapeHtml(command)}
     </div>
   `;
 
@@ -1276,9 +1300,9 @@ function renderFileCard(filePath, action, target = null, replacement = null) {
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="feed-badge">${action.toUpperCase()}</span>
-        <span class="font-bold text-xs truncate max-w-[200px]" style="color: var(--text-primary);">${fileName}</span>
-        <span class="feed-badge text-[9px] font-mono">${ext}</span>
+        <span class="feed-badge">${escapeHtml(action.toUpperCase())}</span>
+        <span class="font-bold text-xs truncate max-w-[200px]" style="color: var(--text-primary);">${escapeHtml(fileName)}</span>
+        <span class="feed-badge text-[9px] font-mono">${escapeHtml(ext)}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         ${inspectBtnHtml}
@@ -1286,7 +1310,7 @@ function renderFileCard(filePath, action, target = null, replacement = null) {
       </div>
     </div>
     <div class="text-[11px] font-mono truncate" style="color: var(--text-muted);">
-      ${filePath}
+      ${escapeHtml(filePath)}
     </div>
   `;
 
@@ -1317,12 +1341,12 @@ function renderResearchCard(toolName, query) {
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
         <span class="feed-badge">DOCS</span>
-        <span class="font-semibold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">${toolName}</span>
+        <span class="font-semibold text-xs truncate max-w-[220px]" style="color: var(--text-primary);">${escapeHtml(toolName)}</span>
       </div>
       <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
     </div>
     <div class="text-xs italic truncate" style="color: var(--text-secondary);">
-      "${query}"
+      "${escapeHtml(query)}"
     </div>
   `;
   appendCard(feed, card);
@@ -1339,7 +1363,7 @@ function renderThinkingCard(thoughtSnippet) {
   card.innerHTML = `
     <span class="shrink-0 mt-0.5">${iconSvg}</span>
     <div class="truncate text-xs italic" style="color: var(--text-secondary);">
-      ${thoughtSnippet}...
+      ${escapeHtml(thoughtSnippet)}...
     </div>
   `;
   appendCard(feed, card);
@@ -1356,7 +1380,7 @@ function renderFocusCard(focusText) {
   card.innerHTML = `
     <div class="flex items-center gap-2 truncate">
       <span class="shrink-0">${iconSvg}</span>
-      <span class="text-xs font-semibold truncate" style="color: var(--accent-primary);">${focusText}</span>
+      <span class="text-xs font-semibold truncate" style="color: var(--accent-primary);">${escapeHtml(focusText)}</span>
     </div>
     <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
   `;
@@ -1398,7 +1422,7 @@ function renderGenericCard(title, details, borderClass = "", iconName = "activit
     <div class="flex items-center gap-2 truncate text-xs" style="color: var(--text-secondary);">
       ${iconSvg}
       <div class="truncate">
-        <strong class="font-semibold" style="color: var(--text-primary);">${title}:</strong> ${details}
+        <strong class="font-semibold" style="color: var(--text-primary);">${escapeHtml(title)}:</strong> ${escapeHtml(details)}
       </div>
     </div>
     <span class="text-[10px] font-mono shrink-0" style="color: var(--text-muted);">${new Date().toLocaleTimeString()}</span>
@@ -1475,7 +1499,7 @@ function renderRoadmapPipeline(steps) {
 
     item.innerHTML = `
       ${icon}
-      <span class="truncate flex-1 ${isDone ? 'line-through text-slate-500' : (isFailed ? 'text-red-500 font-semibold' : '')}">${st.title}</span>
+      <span class="truncate flex-1 ${isDone ? 'line-through text-slate-500' : (isFailed ? 'text-red-500 font-semibold' : '')}">${escapeHtml(st.title)}</span>
     `;
     stepsList.appendChild(item);
   });

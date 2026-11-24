@@ -102,7 +102,18 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
 
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/activate":
-            content_length = int(self.headers.get("Content-Length", 0))
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            if content_length < 0 or content_length > 65536:
+                self.send_response(413)
+                self.end_headers()
+                return
+
             post_body = self.rfile.read(content_length)
             try:
                 data = json.loads(post_body.decode("utf-8"))
@@ -407,6 +418,8 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(f"event: initial_state\ndata: {hydrated_json}\n\n".encode("utf-8"))
         self.wfile.flush()
 
+        last_file_pos = transcript_path.stat().st_size if transcript_path.exists() else 0
+        line_buffer = ""
         last_plan_mtime = plan_path.stat().st_mtime if plan_path.exists() else 0
         last_heartbeat = time.time()
         last_activation_seen = LATEST_ACTIVATION["timestamp"]
@@ -429,42 +442,63 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(f"event: activate\ndata: {act_data}\n\n".encode("utf-8"))
                     self.wfile.flush()
 
-                # Stream new transcript lines
+                # Stream new transcript lines via byte-offset seek
                 if transcript_path.exists():
                     try:
-                        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
-                            lines = f.readlines()
-                        if len(lines) > last_line_idx:
-                            new_lines = lines[last_line_idx:]
-                            last_line_idx = len(lines)
-                            for line in new_lines:
-                                line_clean = line.strip()
-                                if line_clean:
-                                    scrubbed_line = redact_sensitive_data(line_clean)
-                                    self.wfile.write(f"event: step\ndata: {scrubbed_line}\n\n".encode("utf-8"))
-                            self.wfile.flush()
+                        curr_size = transcript_path.stat().st_size
+                        if curr_size < last_file_pos:
+                            # File truncated, compacted, or reset
+                            last_file_pos = 0
+                            line_buffer = ""
+
+                        if curr_size > last_file_pos:
+                            with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+                                f.seek(last_file_pos)
+                                chunk = f.read()
+                                last_file_pos = f.tell()
+
+                            if chunk:
+                                combined = line_buffer + chunk
+                                lines = combined.split("\n")
+                                # If chunk does not end in newline, keep trailing segment in buffer
+                                line_buffer = lines.pop()
+
+                                for line in lines:
+                                    line_clean = line.strip()
+                                    if line_clean:
+                                        scrubbed_line = redact_sensitive_data(line_clean)
+                                        self.wfile.write(f"event: step\ndata: {scrubbed_line}\n\n".encode("utf-8"))
+                                self.wfile.flush()
+                    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError):
+                        raise
                     except Exception:
                         pass
 
-                # Stream plan updates
+                # Stream plan updates (minified to single line for SSE protocol compliance)
                 if plan_path.exists():
                     try:
                         pmtime = plan_path.stat().st_mtime
                         if pmtime > last_plan_mtime:
                             last_plan_mtime = pmtime
                             plan_content = plan_path.read_text(encoding="utf-8", errors="replace")
-                            scrubbed_plan = redact_sensitive_data(plan_content)
-                            self.wfile.write(f"event: plan\ndata: {scrubbed_plan}\n\n".encode("utf-8"))
-                            self.wfile.flush()
+                            try:
+                                plan_obj = json.loads(plan_content)
+                                compact_plan = redact_sensitive_data(json.dumps(plan_obj))
+                                self.wfile.write(f"event: plan\ndata: {compact_plan}\n\n".encode("utf-8"))
+                                self.wfile.flush()
+                            except Exception:
+                                pass
+                    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError):
+                        raise
                     except Exception:
                         pass
 
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError):
             pass
 
     def serve_static_file(self, req_path: str):
         """Safely serves frontend and PWA static assets with correct MIME types."""
-        clean_path = req_path.lstrip("/")
+        clean_path = urllib.parse.unquote(req_path.lstrip("/"))
         if not clean_path or clean_path == "/":
             clean_path = "index.html"
 

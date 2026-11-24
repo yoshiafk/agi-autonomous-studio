@@ -30,9 +30,9 @@ class TestSecurityShield(unittest.TestCase):
         # Allowed loopback origins
         self.assertEqual(get_allowed_cors_origin("http://localhost:7777"), "http://localhost:7777")
         self.assertEqual(get_allowed_cors_origin("http://127.0.0.1:3000"), "http://127.0.0.1:3000")
-        self.assertEqual(get_allowed_cors_origin("null"), "null")
 
-        # Blocked external origins
+        # Blocked origins including null to prevent iframe exfiltration
+        self.assertIsNone(get_allowed_cors_origin("null"))
         self.assertIsNone(get_allowed_cors_origin("http://malicious-website.com"))
         self.assertIsNone(get_allowed_cors_origin("https://phishing.org"))
         self.assertIsNone(get_allowed_cors_origin(""))
@@ -41,6 +41,13 @@ class TestSecurityShield(unittest.TestCase):
         # Valid identifiers
         self.assertEqual(sanitize_identifier("7f270c91-8b98-45aa-9bfd-311aa2a47b72"), "7f270c91-8b98-45aa-9bfd-311aa2a47b72")
         self.assertEqual(sanitize_identifier("project_alpha-123"), "project_alpha-123")
+
+        # DOS reserved device names
+        self.assertIsNone(sanitize_identifier("CON"))
+        self.assertIsNone(sanitize_identifier("prn.txt"))
+        self.assertIsNone(sanitize_identifier("aux"))
+        self.assertIsNone(sanitize_identifier("NUL"))
+        self.assertIsNone(sanitize_identifier("com1"))
 
         # Path traversal attempts
         self.assertIsNone(sanitize_identifier("../../etc/passwd"))
@@ -65,9 +72,25 @@ class TestSecurityShield(unittest.TestCase):
         self.assertNotIn("AIzaSyA1234567890123456789012345678901", redacted)
         self.assertIn("[REDACTED_GEMINI_KEY]", redacted)
 
-        # OpenAI API Key
+        # OpenAI API Key (Classic & Modern Project Keys)
         raw_openai = "sk-12345678901234567890123456789012"
         self.assertIn("[REDACTED_API_KEY]", redact_sensitive_data(raw_openai))
+        raw_openai_proj = "sk-proj-abc123xyz456abcdef78901234567890"
+        self.assertIn("[REDACTED_API_KEY]", redact_sensitive_data(raw_openai_proj))
+
+        # Modern GitHub Tokens
+        raw_github_pat = "github_pat_11AABCXYZ0123456789012_abcdefghijklmnopqrstuvwxyz01234567890123456789012345678"
+        self.assertIn("[REDACTED_GITHUB_PAT]", redact_sensitive_data(raw_github_pat))
+        raw_github_oauth = "gho_0123456789abcdefghijklmnopqrstuvwxyz"
+        self.assertIn("[REDACTED_GITHUB_TOKEN]", redact_sensitive_data(raw_github_oauth))
+
+        # Unquoted secrets in .env or YAML
+        raw_env = "apiKey: AIzaSyA1234567890123456789012345678901"
+        redacted_env = redact_sensitive_data(raw_env)
+        self.assertNotIn("AIzaSyA1234567890123456789012345678901", redacted_env)
+        self.assertIn("[REDACTED", redacted_env)
+        raw_yaml_pass = "token: my-secret-token-value"
+        self.assertIn("[REDACTED]", redact_sensitive_data(raw_yaml_pass))
 
         # Bearer JWT
         raw_bearer = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"

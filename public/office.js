@@ -159,13 +159,17 @@ class OfficeSimulator {
 
   setupHiDPI() {
     const resize = () => {
+      if (!this.container) return;
       const rect = this.container.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.width <= 0 || rect.height <= 0 || !isFinite(rect.width)) {
+        return; // Guard against hidden tab or zero-dimension DOM paint
+      }
       this.dpr = Math.max(window.devicePixelRatio || 1, 2);
 
       const baseWidth = 1160;
       const baseHeight = 460;
       this.cssWidth = rect.width;
-      this.scale = this.cssWidth / baseWidth;
+      this.scale = Math.max(0.1, this.cssWidth / baseWidth);
       this.cssHeight = Math.round(baseHeight * this.scale);
 
       this.width = baseWidth;
@@ -376,7 +380,17 @@ class OfficeSimulator {
   resetSessionState(isActive = true) {
     this.missionSteps = [];
     this.wasAllStepsDone = false;
+    this.isStudioIdle = false;
     this.particles = [];
+
+    // Prune dynamically spawned subagents on session reset, keeping core Lead Architect
+    if (this.agents.length > 1) {
+      this.agents = [this.agents[0]];
+      this.zones.desks.forEach((d, i) => {
+        d.occupiedBy = (i === 0 ? 0 : null);
+      });
+    }
+    this.selectedAgentId = 0;
 
     // Return agents to their workstation stations
     this.agents.forEach(ag => {
@@ -384,6 +398,7 @@ class OfficeSimulator {
       ag.targetY = ag.homeY;
       ag.isPaused = false;
       ag.isDrifting = false;
+      ag.isRestingGoal = false;
       if (isActive) {
         ag.state = (ag.id === 0) ? "working" : "resting";
         ag.currentTask = (ag.id === 0) ? "Session Coordinator" : "Station Idle";
@@ -394,12 +409,13 @@ class OfficeSimulator {
         ag.speech = "";
       }
     });
+    this.updateCockpitUI();
     this.updateRosterUI();
   }
 
   isIdleTask(task) {
     if (!task) return false;
-    const idleKeywords = ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee", "Standby", "Lounge", "Breakout", "Review", "Milestones Complete"];
+    const idleKeywords = ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee", "Standby", "Lounge", "Breakout", "Review", "Milestones Complete", "Archive"];
     return idleKeywords.some(k => task.includes(k));
   }
 
@@ -634,7 +650,7 @@ class OfficeSimulator {
 
       const isResting = ag.state === "coffee" || ag.isRestingGoal ||
         this.isIdleTask(ag.currentTask) ||
-        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("espresso") || ag.speech.toLowerCase().includes("milestones completed")));
+        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("espresso") || ag.speech.toLowerCase().includes("milestones completed") || ag.speech.toLowerCase().includes("armchair") || ag.speech.toLowerCase().includes("bookshelf") || ag.speech.toLowerCase().includes("skyline") || ag.speech.toLowerCase().includes("sofa")));
 
       if (ag.state === "error") {
         statusClass = "error";
@@ -847,14 +863,26 @@ class OfficeSimulator {
       return;
     }
 
-    if (target && !target.isRestingGoal) {
-      if (target.state !== "shipping") {
+    if (this.isStudioIdle) {
+      this.isStudioIdle = false;
+      this.agents.forEach(a => {
+        a.isRestingGoal = false;
+        if (a.state === "coffee" && a !== target) {
+          a.speech = "";
+          a.currentTask = "Standby";
+        }
+      });
+    }
+
+    if (target) {
+      target.isRestingGoal = false;
+      if (target.state !== "shipping" && target.state !== "error") {
         target.state = "working";
       }
       target.isPaused = false;
+      this.selectAgent(target.id);
     }
 
-    this.selectAgent(target.id);
     this.updateCockpitUI();
     this.updateRosterUI();
   }
@@ -2911,7 +2939,7 @@ class OfficeSimulator {
       const dist = Math.hypot(dx, dy);
 
       if (dist > 2) {
-        if (ag.state !== "shipping") ag.state = "walking";
+        if (ag.state !== "shipping" && ag.state !== "error") ag.state = "walking";
         const speed = 2.4;
         ag.x += (dx / dist) * speed;
         ag.y += (dy / dist) * speed;

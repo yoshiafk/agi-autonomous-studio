@@ -9,10 +9,14 @@ import re
 import json
 import time
 import sqlite3
+import threading
 import urllib.parse
 from pathlib import Path
 
 _PROJECT_MANIFESTS_CACHE = {"data": {}, "last_scanned": 0}
+_MANIFESTS_LOCK = threading.Lock()
+_ANALYTICS_CACHE = {}
+_ANALYTICS_LOCK = threading.Lock()
 
 AGENT_STYLE_PRESETS = {
     "lead-architect": {"name": "Lead Architect", "role": "Planner & Coordinator", "color": "#4f46e5", "hair": "#b45309", "shirt": "#e0e7ff", "station": "Strategy Board"},
@@ -60,14 +64,14 @@ def get_available_subagents(config_dir: Path) -> list:
 
     for af in agent_paths:
         try:
-            content = af.read_text(encoding="utf-8")
+            content = af.read_text(encoding="utf-8", errors="replace")
             raw_id = af.stem.lower()
 
             name_m = re.search(r"^name:\s*(.+)$", content, re.MULTILINE)
             desc_m = re.search(r"^description:\s*(.+)$", content, re.MULTILINE)
 
-            agent_id = name_m.group(1).strip().lower() if name_m else raw_id
-            description = desc_m.group(1).strip() if desc_m else ""
+            agent_id = name_m.group(1).strip().strip("'\"").lower() if name_m else raw_id
+            description = desc_m.group(1).strip().strip("'\"") if desc_m else ""
             source = af.parent.parent.name if "plugins" in str(af) else "user"
 
             preset = AGENT_STYLE_PRESETS.get(agent_id) or AGENT_STYLE_PRESETS.get(raw_id)
@@ -102,8 +106,9 @@ def get_available_subagents(config_dir: Path) -> list:
 def get_project_manifests(config_dir: Path, ttl=10.0) -> dict:
     """Returns cached project manifests from config_dir/projects/*.json with a TTL."""
     now = time.time()
-    if (now - _PROJECT_MANIFESTS_CACHE["last_scanned"] < ttl) and _PROJECT_MANIFESTS_CACHE["data"]:
-        return _PROJECT_MANIFESTS_CACHE["data"]
+    with _MANIFESTS_LOCK:
+        if (now - _PROJECT_MANIFESTS_CACHE["last_scanned"] < ttl) and _PROJECT_MANIFESTS_CACHE["data"]:
+            return _PROJECT_MANIFESTS_CACHE["data"]
 
     manifests = {}
     projects_dir = Path(config_dir) / "projects"
@@ -132,18 +137,23 @@ def get_project_manifests(config_dir: Path, ttl=10.0) -> dict:
             except Exception:
                 pass
 
-    _PROJECT_MANIFESTS_CACHE["data"] = manifests
-    _PROJECT_MANIFESTS_CACHE["last_scanned"] = now
+    with _MANIFESTS_LOCK:
+        _PROJECT_MANIFESTS_CACHE["data"] = manifests
+        _PROJECT_MANIFESTS_CACHE["last_scanned"] = now
     return manifests
 
 def get_db_connection(data_dir: Path):
-    """Returns read-only, immutable SQLite connection to conversation_summaries.db."""
+    """Returns read-only, WAL-concurrent SQLite connection to conversation_summaries.db."""
     db_path = Path(data_dir) / "conversation_summaries.db"
     if not db_path.exists():
         return None
     try:
-        uri = f"file:{db_path.as_posix()}?mode=ro&immutable=1"
-        return sqlite3.connect(uri, uri=True, timeout=2.0)
+        clean_path = db_path.resolve().as_posix()
+        uri = f"file:///{clean_path.lstrip('/')}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=5.0)
+        conn.execute("PRAGMA query_only = ON;")
+        conn.execute("PRAGMA busy_timeout = 3000;")
+        return conn
     except Exception as e:
         print(f"[!] SQLite connection error: {e}", file=sys.stderr)
         return None
@@ -365,6 +375,16 @@ def calculate_session_analytics(data_dir: Path, conv_id: str) -> dict:
     if not transcript_path.exists():
         return analytics
 
+    cache_key = None
+    try:
+        st = transcript_path.stat()
+        cache_key = (conv_id, st.st_mtime, st.st_size)
+        with _ANALYTICS_LOCK:
+            if cache_key in _ANALYTICS_CACHE:
+                return dict(_ANALYTICS_CACHE[cache_key])
+    except Exception:
+        pass
+
     models = set()
     tool_counter = {}
     total_tools = 0
@@ -422,6 +442,12 @@ def calculate_session_analytics(data_dir: Path, conv_id: str) -> dict:
         if timestamps:
             analytics["first_step_time"] = timestamps[0]
             analytics["last_step_time"] = timestamps[-1]
+
+        if cache_key:
+            with _ANALYTICS_LOCK:
+                if len(_ANALYTICS_CACHE) > 30:
+                    _ANALYTICS_CACHE.clear()
+                _ANALYTICS_CACHE[cache_key] = analytics
     except Exception as e:
         print(f"[!] Error calculating analytics: {e}", file=sys.stderr)
 
