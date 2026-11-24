@@ -26,10 +26,13 @@ if (Test-Path (Join-Path $InstallDir ".git")) {
 }
 
 Write-Host ""
+Write-Host "=======================================================" -ForegroundColor Green
 Write-Host "Installation Complete!" -ForegroundColor Green
-Write-Host "  Plugin Location: $InstallDir"
-Write-Host "  Chat Command:    /studio"
+Write-Host "  Plugin Location: $InstallDir" -ForegroundColor Green
+Write-Host "  Chat Command:    /studio" -ForegroundColor Green
+Write-Host "  Dashboard Link:  http://localhost:7777/?auto=true" -ForegroundColor Green
+Write-Host "=======================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Launching Studio Visualizer..." -ForegroundColor Cyan
+Write-Host "Launching Studio Visualizer in background..." -ForegroundColor Cyan
 
 Start-Process -FilePath "cmd.exe" -ArgumentList "/c", (Join-Path $InstallDir "start.bat")

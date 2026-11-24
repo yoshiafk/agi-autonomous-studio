@@ -11,7 +11,9 @@ import time
 import socket
 import signal
 import argparse
+import subprocess
 import urllib.parse
+import urllib.request
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -506,6 +508,188 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(str(e).encode("utf-8"))
 
+def get_pid_file_path() -> Path:
+    """Returns path to the runtime PID tracking file."""
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        test_file = repo_root / ".pid_test"
+        test_file.touch()
+        test_file.unlink()
+        return repo_root / ".studio.pid"
+    except Exception:
+        fallback = Path.home() / ".gemini" / "antigravity"
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback / ".studio.pid"
+
+def is_server_healthy(host: str, port: int) -> dict | None:
+    """Probes the /health endpoint to check server availability."""
+    url = f"http://{host}:{port}/health"
+    try:
+        req = urllib.request.Request(url, headers={"Host": f"{host}:{port}"})
+        with urllib.request.urlopen(req, timeout=1.2) as response:
+            if response.status == 200:
+                return json.loads(response.read().decode("utf-8"))
+    except Exception:
+        pass
+    return None
+
+def get_running_pid() -> tuple[int | None, dict | None]:
+    """Returns active PID and metadata if process is alive, cleaning up stale PID files."""
+    pid_file = get_pid_file_path()
+    if not pid_file.exists():
+        return None, None
+    try:
+        data = json.loads(pid_file.read_text(encoding="utf-8"))
+        pid = data.get("pid")
+        if pid:
+            try:
+                os.kill(pid, 0)
+                return pid, data
+            except (OSError, ProcessLookupError):
+                try:
+                    pid_file.unlink()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return None, None
+
+def stop_daemon(host: str = "127.0.0.1", port: int = 7777) -> int:
+    """Gracefully stops any active Antigravity Studio instance."""
+    pid, data = get_running_pid()
+    pid_file = get_pid_file_path()
+
+    if not pid:
+        healthy = is_server_healthy(host, port)
+        if healthy:
+            print(f"[i] Antigravity Studio is active on port {port}, but no local PID file was found (may be running in Docker or another shell).")
+            return 0
+        print("[i] Antigravity Studio is not currently running.")
+        return 0
+
+    print(f"[*] Stopping Antigravity Studio (PID {pid})...")
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except Exception:
+        pass
+
+    for _ in range(30):
+        time.sleep(0.1)
+        try:
+            os.kill(pid, 0)
+        except (OSError, ProcessLookupError):
+            break
+    else:
+        try:
+            if sys.platform == "win32":
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+            else:
+                os.kill(pid, signal.SIGKILL)
+        except Exception:
+            pass
+
+    if pid_file.exists():
+        try:
+            pid_file.unlink()
+        except Exception:
+            pass
+
+    print("[✓] Antigravity Studio stopped successfully.")
+    return 0
+
+def start_daemon(host: str, port: int, open_browser: bool, data_dir: str = None, config_dir: str = None) -> int:
+    """Spawns Antigravity Studio as a detached background daemon."""
+    healthy = is_server_healthy(host, port)
+    if healthy:
+        print(f"[✓] Antigravity Studio is already active at http://{host}:{port}/?auto=true")
+        if open_browser:
+            import webbrowser
+            try:
+                webbrowser.open(f"http://{host}:{port}/?auto=true")
+            except Exception:
+                pass
+        return 0
+
+    server_script = Path(__file__).resolve().parent.parent / "server.py"
+    cmd = [sys.executable, str(server_script), "--host", host, "--port", str(port)]
+    if data_dir:
+        cmd.extend(["--data-dir", str(data_dir)])
+    if config_dir:
+        cmd.extend(["--config-dir", str(config_dir)])
+
+    if sys.platform == "win32":
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+            close_fds=True
+        )
+    else:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True
+        )
+
+    pid_file = get_pid_file_path()
+    pid_data = {
+        "pid": proc.pid,
+        "host": host,
+        "port": port,
+        "started_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    try:
+        pid_file.write_text(json.dumps(pid_data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+    for _ in range(30):
+        time.sleep(0.1)
+        if is_server_healthy(host, port):
+            print(f"[✓] Antigravity Studio started in background (PID {proc.pid})")
+            print(f"    Visualizer URL: http://{host}:{port}/?auto=true")
+            if open_browser:
+                import webbrowser
+                try:
+                    webbrowser.open(f"http://{host}:{port}/?auto=true")
+                except Exception:
+                    pass
+            return 0
+
+    print("[!] Server spawned but did not respond to health check in time.")
+    return 1
+
+def get_status(host: str, port: int) -> int:
+    """Reports current daemon running status."""
+    pid, data = get_running_pid()
+    healthy = is_server_healthy(host, port)
+
+    if healthy:
+        active_pid = pid or healthy.get("pid", "Active Server")
+        print("=======================================================")
+        print("Antigravity Autonomous Studio: ACTIVE")
+        print(f"Status:       Running (PID: {active_pid})")
+        print(f"Host:         {healthy.get('host', host)}")
+        print(f"Port:         {healthy.get('port', port)}")
+        print(f"Data Dir:     {healthy.get('data_dir', 'N/A')}")
+        print(f"Config Dir:   {healthy.get('config_dir', 'N/A')}")
+        print(f"Dashboard:    http://{host}:{port}/?auto=true")
+        print("=======================================================")
+        return 0
+    else:
+        print("=======================================================")
+        print("Antigravity Autonomous Studio: STOPPED")
+        print(f"Host:         {host}")
+        print(f"Port:         {port} (Closed)")
+        print("Launch with:  python server.py --daemon")
+        print("=======================================================")
+        return 1
+
 def find_available_port(host: str, start_port: int, max_attempts: int = 10) -> int:
     """Finds an open port starting from start_port up to start_port + max_attempts."""
     for p in range(start_port, start_port + max_attempts):
@@ -522,6 +706,11 @@ def run():
     global PORT, HOST, DATA_DIR, CONFIG_DIR
 
     parser = argparse.ArgumentParser(description="Antigravity Autonomous Studio")
+    parser.add_argument("command", nargs="?", choices=["start", "stop", "status", "restart"], default=None, help="Action command")
+    parser.add_argument("--daemon", "--start", dest="daemon_flag", action="store_true", help="Run server as a detached background daemon")
+    parser.add_argument("--stop", dest="stop_flag", action="store_true", help="Stop running background daemon")
+    parser.add_argument("--status", dest="status_flag", action="store_true", help="Check status of background daemon")
+    parser.add_argument("--restart", dest="restart_flag", action="store_true", help="Restart background daemon")
     parser.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", 7777)), help="Port to listen on (default: 7777)")
     parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"), help="Host address to bind (default: 127.0.0.1)")
     parser.add_argument("--data-dir", default=None, help="Explicit Antigravity data directory")
@@ -529,8 +718,25 @@ def run():
     parser.add_argument("--open-browser", action="store_true", help="Automatically launch default browser")
     args, _ = parser.parse_known_args()
 
-    HOST = args.host
-    PORT = find_available_port(HOST, args.port)
+    host = args.host
+    port = args.port
+
+    # Handle lifecycle actions
+    action = args.command
+    if args.stop_flag or action == "stop":
+        sys.exit(stop_daemon(host, port))
+    if args.status_flag or action == "status":
+        sys.exit(get_status(host, port))
+    if args.restart_flag or action == "restart":
+        stop_daemon(host, port)
+        time.sleep(0.3)
+        sys.exit(start_daemon(host, port, args.open_browser, args.data_dir, args.config_dir))
+    if args.daemon_flag or action == "start":
+        sys.exit(start_daemon(host, port, args.open_browser, args.data_dir, args.config_dir))
+
+    # Foreground Execution
+    HOST = host
+    PORT = find_available_port(HOST, port)
 
     if args.data_dir:
         DATA_DIR, CONFIG_DIR = resolve_antigravity_paths(args.data_dir, args.config_dir)
@@ -538,8 +744,25 @@ def run():
     server_address = (HOST, PORT)
     httpd = ThreadedHTTPServer(server_address, OfficeRequestHandler)
 
+    # Record PID in foreground as well
+    pid_file = get_pid_file_path()
+    try:
+        pid_file.write_text(json.dumps({
+            "pid": os.getpid(),
+            "host": HOST,
+            "port": PORT,
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
     def shutdown_handler(signum, frame):
         print("\n[!] Gracefully shutting down Antigravity Studio...")
+        if pid_file.exists():
+            try:
+                pid_file.unlink()
+            except Exception:
+                pass
         httpd.server_close()
         sys.exit(0)
 

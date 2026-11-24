@@ -1,42 +1,44 @@
-# 🏢 Antigravity Virtual Dev Office Visualizer
+# Antigravity Autonomous Studio
 
-An animated, retro 2D pixel-art office simulator that visualizes **Google Antigravity agents, subagents, and swarm workers** doing real-time development across all your projects.
-
----
-
-## 🌟 Key Features
-
-- **Multi-Project Auto-Discovery**: Automatically scans and monitors all projects in `~/.gemini/config/projects/` (`web-frontend`, `api-service`, `mobile-app`, etc.).
-- **Automatic Triggering on Future Projects**: Configured with Antigravity Global Lifecycle Hooks (`SessionStart` in `~/.gemini/config/hooks.json`). Any project added in the future automatically awakens the visualizer with zero manual setup.
-- **Auto-Follow Mode**: Keep `http://localhost:7777` open in a browser tab or second monitor. Whenever you prompt Antigravity in any workspace, the office automatically switches view and animates that project.
-- **Live Event Streaming (SSE)**: Streams tool calls (`invoke_subagent`, `run_command`, `write_file`, `edit_file`, `search_web`), thinking states, and step completions directly from `transcript.jsonl`.
-- **Animated Developer Sprites**:
-  - **Coordinator**: Plans sprint milestones at the Strategy Whiteboard.
-  - **Coder Subagents**: Type rapidly at dual-monitor desks with glowing code displays.
-  - **QA & Test Engineers**: Walk over to the Test Server Rack when Docker/pytest/Playwright tests run.
-  - **Researchers**: Study docs and RFC schemas.
-  - **Break Room**: Agents enjoy coffee at the watercooler when steps finish.
+A live 2D architectural tech studio visualizer that monitors and renders **Google Antigravity agents, subagents, and swarm teams** performing real-time development across all your projects.
 
 ---
 
-## 🚀 Quick Start
+## Key Capabilities
 
-### Option A: Install as an Antigravity Plugin (Recommended)
-Clone directly into your Antigravity plugins directory to enable the `/studio` chat command:
+- **Zero Docker Prerequisite**: Runs on pure Python standard library (`http.server`, `sqlite3`, `subprocess`, `json`) with **zero third-party pip dependencies**. Starts in <150ms on any machine with Python 3.8+.
+- **Master Steering Cockpit**: Full-width dedicated steering dock below the canvas displaying live agent context utilization (`%` and `k / 200k`), color-coded token health, and human-in-the-loop steering controls (`Nudge`, `Pause/Resume`, `Breakout`).
+- **Modern Architectural Tech Studio Canvas**:
+  - **Collaborative Pods**: Pod Alpha (Core Engineering) and Pod Beta (Intelligence & Code Review) with dual curved IDE screens, vertical PR diff review monitors, and token streams.
+  - **Specialist Stations**: Architecture Drafting Bench with blueprint sheets, QA Mobile Device Test Bench with live test logs, CI/CD Server Bay with raised antistatic flooring, and Git Remote Dispatch with 3D parabolic uplink antenna.
+  - **Breakout Lounge & Cafe**: Barista espresso bar, curved Scandinavian sofa, mid-century armchair, and knowledge archive bookshelf for natural idle distribution.
+  - **Night Mode Skyline Horizon**: Architectural skyscraper skyline with illuminated office windows and blinking aviation beacons.
+- **Uniform Specialists Roster**: Balanced, high-density roster tiles featuring 2-letter agent monograms, live status indicators, station tags, and micro context capacity meters.
+- **8-Bit Chiptune Soundscape**: Audio telemetry synthesis providing acoustic feedback for agent steps, tool executions, terminal commands, and milestone achievements.
+- **Multi-Session Auto-Follow**: Seamlessly auto-switches to whichever project or conversation is actively running in Antigravity without hijacking focus.
 
+---
+
+## Quick Start
+
+### Option 1: Install as an Antigravity Plugin (Recommended)
+Clone directly into your Antigravity plugins directory to enable the `/studio` chat command and agent integration:
+
+**Linux / macOS / WSL**:
 ```bash
-# macOS / Linux / WSL
 git clone https://github.com/yoshiafk/agi-autonomous-studio.git ~/.gemini/config/plugins/antigravity-studio
+```
 
-# Windows (PowerShell)
+**Windows (PowerShell)**:
+```powershell
 git clone https://github.com/yoshiafk/agi-autonomous-studio.git "$env:USERPROFILE\.gemini\config\plugins\antigravity-studio"
 ```
 
-Once installed, simply type `/studio` in any Antigravity conversation or run `./start.sh` (or `start.bat` on Windows).
+Once installed, simply type `/studio` in any Antigravity conversation or ask your agent to "open studio".
 
 ---
 
-### Option B: 1-Line Universal Installer
+### Option 2: 1-Line Universal Installer
 
 **Linux / macOS / WSL**:
 ```bash
@@ -50,7 +52,29 @@ irm https://raw.githubusercontent.com/yoshiafk/agi-autonomous-studio/master/inst
 
 ---
 
-### Option C: Run via Docker Compose
+### Option 3: Standalone Native Python (Zero Pip Packages)
+
+Clone and run instantly with no build step:
+
+```bash
+git clone https://github.com/yoshiafk/agi-autonomous-studio.git
+cd agi-autonomous-studio
+
+# Start in background daemon mode (non-blocking)
+python3 server.py --daemon --open-browser
+
+# Check daemon status
+python3 server.py status
+
+# Stop daemon
+python3 server.py stop
+```
+
+---
+
+### Option 4: Docker Compose (Optional Containerized Mode)
+
+If you prefer containerized isolation:
 
 ```bash
 git clone https://github.com/yoshiafk/agi-autonomous-studio.git
@@ -60,19 +84,22 @@ docker compose up -d
 
 ---
 
-### Option D: Native Python 3 (Zero Pip Dependencies)
+## CLI Command Reference
 
-`server.py` relies solely on standard Python libraries (`http.server`, `sqlite3`, `pathlib`, `json`).
+`server.py` and `studio.core` provide complete lifecycle management:
 
-```bash
-git clone https://github.com/yoshiafk/agi-autonomous-studio.git
-cd agi-autonomous-studio
-python3 server.py --open-browser
-```
+| Command | Action |
+| :--- | :--- |
+| `python server.py --daemon` | Start server as a detached background daemon and verify health |
+| `python server.py status` | Check whether studio server is running and print port/PID metadata |
+| `python server.py stop` | Gracefully terminate active studio daemon process |
+| `python server.py restart` | Stop active daemon and start fresh instance |
+| `python server.py --port 7777` | Run server in foreground (ideal for Docker or debugging) |
+| `python server.py --open-browser` | Launch default browser to `http://localhost:7777/?auto=true` |
 
 ---
 
-## 🔗 Browser URL Patterns
+## Browser URL Patterns
 
 - **Auto-Follow Active Agent**:
   `http://localhost:7777/?auto=true`
@@ -84,8 +111,10 @@ python3 server.py --open-browser
 
 ---
 
-## 🛡️ Data Safety & Architecture
+## Security & Architecture
 
-- **Read-Only Guarantee**: Both Docker and the backend mount and query Antigravity directories (`brain/`, `config/`) strictly as **read-only (`:ro`)**.
-- **Immutable SQLite**: Uses SQLite URI `?mode=ro&immutable=1` to ensure zero file-locking conflicts with Antigravity's active database.
-- **Port**: Hosted on `7777`, completely isolated from other local services.
+- **Zero-Dependency Core**: Pure Python standard library implementation eliminates security attack surfaces from third-party pip packages.
+- **Loopback Isolation & Host Shield**: Server binds to `127.0.0.1` by default and validates HTTP Host headers against DNS rebinding attacks.
+- **Path Traversal Protection**: Enforces `os.path.realpath` boundary containment on all file reads.
+- **Read-Only Telemetry**: Antigravity transcript and database queries use immutable read-only modes (`?mode=ro&immutable=1`), preventing any lock contention.
+- **Zero-Emoji Compliance**: Clean, vector-based SVG iconography and canvas rendering.
