@@ -332,6 +332,33 @@ body.theme-night .roster-status-badge.resting {
   border-color: rgba(217, 119, 6, 0.4) !important;
 }
 
+.roster-status-badge.standby {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+body.theme-sunset .roster-status-badge.standby {
+  background-color: #f8fafc;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+body.theme-night .roster-status-badge.standby {
+  background-color: rgba(148, 163, 184, 0.15) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+.roster-status-badge.paused {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+body.theme-night .roster-status-badge.paused {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
 /* Auto-Follow Toggle in Night Mode */
 body.theme-night #toggle-autofollow {
   background-color: rgba(59, 130, 246, 0.15) !important;

@@ -243,6 +243,29 @@ class OfficeSimulator {
     this.updateRosterUI();
   }
 
+  getStationLabel(ag) {
+    if (ag.state === "coffee" || (Math.hypot(ag.x - 130, ag.y - 340) < 110)) {
+      return "☕ Espresso Lounge";
+    }
+    if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 342) < 45) {
+      return "📮 Git Post Office";
+    }
+    if (ag.key === "devops" && Math.hypot(ag.x - 980, ag.y - 165) < 45) {
+      return "🖥️ CI/CD Server Bay";
+    }
+    if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 30), ag.y - (this.zones.glassBoard.y + 35)) < 60) {
+      return "📋 Strategy Easel";
+    }
+    if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 60) {
+      return "📚 Knowledge Archive";
+    }
+    if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < 4) {
+      const execTier = ag.deskIndex < 2 ? "Front Exec" : "Back Exec";
+      return `📍 Desk ${ag.deskIndex + 1} (${execTier})`;
+    }
+    return "📍 Studio Floor";
+  }
+
   getOrCreateSpecialist(roleKey, nameOverride) {
     const tmpl = this.specialistTemplates[roleKey] || this.specialistTemplates.coder;
     const agentName = nameOverride || tmpl.role;
@@ -250,14 +273,30 @@ class OfficeSimulator {
     let ag = this.agents.find(a => a.key === roleKey || a.name.toLowerCase() === agentName.toLowerCase());
     if (ag) return ag;
 
-    let deskIdx = this.zones.desks.findIndex(d => d.occupiedBy === null);
-    if (deskIdx !== -1) {
-      this.zones.desks[deskIdx].occupiedBy = this.agents.length;
-    } else {
-      deskIdx = this.agents.length % this.zones.desks.length;
-    }
+    let deskIdx = null;
+    let initialX, initialY;
 
-    const desk = this.zones.desks[deskIdx];
+    if (roleKey === "dispatcher") {
+      deskIdx = null;
+      initialX = 980;
+      initialY = 342;
+    } else if (roleKey === "planner") {
+      deskIdx = 0;
+      initialX = this.zones.glassBoard.x + 30;
+      initialY = this.zones.glassBoard.y + 35;
+      this.zones.desks[0].occupiedBy = 0;
+    } else {
+      let openDesk = this.zones.desks.findIndex((d, i) => i > 0 && d.occupiedBy === null);
+      if (openDesk !== -1) {
+        deskIdx = openDesk;
+        this.zones.desks[deskIdx].occupiedBy = this.agents.length;
+      } else {
+        deskIdx = this.agents.length % this.zones.desks.length;
+      }
+      const desk = this.zones.desks[deskIdx];
+      initialX = desk.x;
+      initialY = desk.y - 14;
+    }
 
     ag = {
       id: this.agents.length,
@@ -268,9 +307,9 @@ class OfficeSimulator {
       hair: tmpl.hair,
       shirt: tmpl.shirt,
       deskIndex: deskIdx,
-      x: desk.x, y: desk.y - 14,
-      targetX: desk.x, targetY: desk.y - 14,
-      homeX: desk.x, homeY: desk.y - 14,
+      x: initialX, y: initialY,
+      targetX: initialX, targetY: initialY,
+      homeX: initialX, homeY: initialY,
       state: "working",
       speech: `Joined studio: ${tmpl.role}`,
       currentTask: "Ready"
@@ -294,7 +333,6 @@ class OfficeSimulator {
     list.innerHTML = "";
     this.agents.forEach(ag => {
       const isSelected = (ag.id === this.selectedAgentId);
-      const isResting = (ag.state === "coffee");
       const card = document.createElement('div');
       card.className = `roster-item-card ${isSelected ? 'selected' : ''}`;
 
@@ -303,15 +341,30 @@ class OfficeSimulator {
         this.selectAgent(ag.id);
       };
 
-      const statusClass = isResting ? 'resting' : 'working';
-      const statusLabel = isResting ? 'RESTING' : 'WORKING';
+      const stationLabel = this.getStationLabel(ag);
+
+      let statusClass = "working";
+      let statusLabel = "WORKING";
+
+      if (ag.isPaused) {
+        statusClass = "paused";
+        statusLabel = "PAUSED";
+      } else if (ag.state === "coffee" || (stationLabel.includes("Lounge") && (ag.currentTask === "Resting" || (ag.speech && ag.speech.includes("coffee"))))) {
+        statusClass = "resting";
+        statusLabel = "RESTING";
+      } else if (ag.currentTask === "Ready" && ag.state !== "working" && ag.state !== "shipping") {
+        statusClass = "standby";
+        statusLabel = "STANDBY";
+      } else {
+        statusClass = "working";
+        statusLabel = "WORKING";
+      }
 
       // Metadata calculations
       const tokenRatio = ag.contextRatio || (0.35 + (ag.id * 0.14));
       const tokenPct = Math.round(tokenRatio * 100);
       const tokenCount = Math.round(tokenRatio * 200);
       const contextColor = tokenRatio > 0.85 ? '#ef4444' : (tokenRatio > 0.65 ? '#f59e0b' : '#10b981');
-      const stationLabel = (ag.deskIndex !== null && ag.deskIndex !== undefined) ? `Desk ${ag.deskIndex + 1}` : '☕ Lounge';
 
       let expandedHtml = '';
       if (isSelected) {
@@ -332,7 +385,7 @@ class OfficeSimulator {
             <div class="grid grid-cols-2 gap-1.5 text-[10.5px] pt-0.5">
               <div class="truncate">
                 <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Station</span>
-                <span class="font-semibold truncate block" style="color: var(--text-primary);">${stationLabel} (${(ag.deskIndex !== null && ag.deskIndex < 2) ? 'Executive Front' : 'Executive Back'})</span>
+                <span class="font-semibold truncate block" style="color: var(--text-primary);">${stationLabel}</span>
               </div>
               <div class="truncate">
                 <span class="block text-[9px] uppercase font-bold" style="color: var(--text-muted);">Action Target</span>
@@ -351,6 +404,8 @@ class OfficeSimulator {
         `;
       }
 
+      const shortStation = stationLabel.replace(" (Front Exec)", "").replace(" (Back Exec)", "");
+
       card.innerHTML = `
         <div class="roster-card-header">
           <div class="flex items-center gap-2.5 truncate">
@@ -363,7 +418,7 @@ class OfficeSimulator {
             </div>
           </div>
           <div class="roster-card-meta">
-            <span class="roster-station-pill">📍 ${stationLabel}</span>
+            <span class="roster-station-pill">${shortStation}</span>
             <span class="roster-context-pill" style="color: ${contextColor}; border-color: ${contextColor}40">🧠 ${tokenPct}%</span>
             <span class="roster-status-badge ${statusClass}">
               ${statusLabel}
@@ -468,6 +523,8 @@ class OfficeSimulator {
       const planner = this.getOrCreateSpecialist("planner", "Lead Architect");
       planner.speech = "Refining mission roadmap...";
       planner.currentTask = "Roadmap Update";
+      planner.state = "working";
+      planner.isPaused = false;
       planner.targetX = this.zones.glassBoard.x + 30;
       planner.targetY = this.zones.glassBoard.y + 35;
       if (args.steps) this.setMissionSteps(args.steps);
@@ -475,6 +532,8 @@ class OfficeSimulator {
     } else if (toolName === "update_focus") {
       target.speech = `Focus: ${args.focus || ''}`;
       target.currentTask = args.focus || "Executing Task";
+      target.state = "working";
+      target.isPaused = false;
     } else if (toolName === "run_command") {
       const cmd = (args.CommandLine || "").toLowerCase();
       
@@ -484,6 +543,7 @@ class OfficeSimulator {
         dispatcher.speech = "Stamping & pushing commit to origin/main 📮";
         dispatcher.currentTask = "Git Remote Push";
         dispatcher.state = "shipping";
+        dispatcher.isPaused = false;
         dispatcher.targetX = 980;
         dispatcher.targetY = 342;
         this.uplinkPulse = 1.0;
@@ -492,6 +552,8 @@ class OfficeSimulator {
         const devops = this.getOrCreateSpecialist("devops", "DevOps & QA");
         devops.speech = "Running container test suite...";
         devops.currentTask = "Server QA";
+        devops.state = "working";
+        devops.isPaused = false;
         devops.targetX = 980;
         devops.targetY = 165;
         target = devops;
@@ -499,6 +561,8 @@ class OfficeSimulator {
         const devops = this.getOrCreateSpecialist("devops", "DevOps & QA");
         devops.speech = `Exec: ${(args.CommandLine || "").slice(0, 25)}...`;
         devops.currentTask = "CLI Execution";
+        devops.state = "working";
+        devops.isPaused = false;
         devops.targetX = devops.homeX;
         devops.targetY = devops.homeY;
         target = devops;
@@ -508,6 +572,8 @@ class OfficeSimulator {
       const fname = args.Path ? args.Path.split(/[\\/]/).pop() : 'code';
       coder.speech = `Editing ${fname}`;
       coder.currentTask = `Modifying ${fname}`;
+      coder.state = "working";
+      coder.isPaused = false;
       coder.targetX = coder.homeX;
       coder.targetY = coder.homeY;
       target = coder;
@@ -515,12 +581,21 @@ class OfficeSimulator {
       const researcher = this.getOrCreateSpecialist("researcher", "Research Analyst");
       researcher.speech = "Consulting API specifications...";
       researcher.currentTask = "Docs Review";
+      researcher.state = "working";
+      researcher.isPaused = false;
       researcher.targetX = this.zones.library.x + 20;
       researcher.targetY = this.zones.library.y + 35;
       target = researcher;
     } else if (toolName === "done") {
       this.setAllIdle();
       return;
+    }
+
+    if (target) {
+      if (target.state !== "shipping") {
+        target.state = "working";
+      }
+      target.isPaused = false;
     }
 
     this.selectAgent(target.id);
@@ -1905,7 +1980,7 @@ class OfficeSimulator {
           } else if (Math.abs(ag.x - ag.homeX) < 8 && Math.abs(ag.y - ag.homeY) < 8) {
             ag.state = (ag.currentTask === "Resting" ? "coffee" : "working");
           } else {
-            ag.state = "active";
+            ag.state = (ag.currentTask === "Resting" ? "coffee" : "working");
           }
           this.updateRosterUI();
         }

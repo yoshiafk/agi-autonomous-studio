@@ -409,8 +409,6 @@ function handleStepEvent(step) {
     if (step.content && !step.tool_calls) {
       onConversationIdle();
       updateActiveHeader(currentProjectId, null, false);
-    } else if (step.status === "DONE") {
-      officeSim.handleToolAction("done", {});
     }
   }
 }
