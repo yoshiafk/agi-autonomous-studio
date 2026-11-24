@@ -24,28 +24,29 @@ class OfficeSimulator {
     this.maxParticles = 80;
     this.wasAllStepsDone = false;
 
-    // Studio Zones (Decluttered Spacious Layout)
+    // Studio Zones (Modern Architectural Tech Studio Layout)
     this.zones = {
-      windowWall: { y: 65, height: 60 },
-      glassBoard: { x: 130, y: 155, label: "Strategy Easel" },
-      library: { x: 360, y: 155, label: "Knowledge Archive" },
-      securityVault: { x: 620, y: 150, label: "Security Vault" },
-      serverLab: { x: 1045, y: 155, label: "CI/CD Server Bay" },
-      espressoBar: { x: 145, y: 345, label: "Espresso Lounge" },
-      postOffice: { x: 1030, y: 340, label: "Git Post Office" },
+      windowWall: { y: 0, height: 80 },
+      glassBoard: { x: 130, y: 145, label: "Strategy Roadmap" },
+      library: { x: 275, y: 145, label: "Knowledge Archive" },
+      securityVault: { x: 650, y: 140, label: "Security Vault" },
+      serverLab: { x: 1060, y: 155, label: "CI/CD Server Bay" },
+      espressoBar: { x: 160, y: 360, label: "Breakout Lounge" },
+      postOffice: { x: 1030, y: 345, label: "Git Post Office" },
       plants: [
-        { x: 45, y: 160, type: "monstera" },
-        { x: 860, y: 155, type: "ficus" },
-        { x: 45, y: 405, type: "palm" }
+        { x: 45, y: 145, type: "monstera" },
+        { x: 345, y: 145, type: "ficus" },
+        { x: 940, y: 145, type: "palm" },
+        { x: 325, y: 395, type: "monstera" }
       ],
-      // 6 Executive Workstation Desks in Central Atrium (Row 1 & Row 2)
+      // 6 Distinct Workstations across Collaborative Pods
       desks: [
-        { x: 380, y: 260, occupiedBy: 0 },
-        { x: 570, y: 260, occupiedBy: null },
-        { x: 760, y: 260, occupiedBy: null },
-        { x: 380, y: 375, occupiedBy: null },
-        { x: 570, y: 375, occupiedBy: null },
-        { x: 760, y: 375, occupiedBy: null }
+        { x: 440, y: 255, occupiedBy: 0 },    // Desk 1: Pod Alpha Core Dev Lead
+        { x: 560, y: 255, occupiedBy: null }, // Desk 2: Pod Alpha Pair Dev
+        { x: 740, y: 255, occupiedBy: null }, // Desk 3: Pod Beta Code Reviewer
+        { x: 860, y: 255, occupiedBy: null }, // Desk 4: Pod Beta AI Specialist
+        { x: 500, y: 380, occupiedBy: null }, // Desk 5: Architecture & Blueprint Bench
+        { x: 800, y: 380, occupiedBy: null }  // Desk 6: QA & Mobile Device Test Bench
       ]
     };
 
@@ -257,20 +258,23 @@ class OfficeSimulator {
   }
 
   setAllIdle() {
-    // Natural distributed seating in the redesigned Scandinavian cafe lounge
-    const loungeSpots = [
-      { x: 145, y: 338 }, // At the espresso machine (brewing coffee)
-      { x: 72,  y: 340 }, // Seated relaxed inside the armchair
-      { x: 185, y: 342 }, // By the round birch coffee table
-      { x: 45,  y: 335 }, // By the monstera planter
-      { x: 215, y: 338 }  // Chatting near the lounge entrance
+    // Multi-spot natural idle distribution across the entire studio
+    const idleSpots = [
+      { x: 140, y: 355, task: "Brewing Espresso", speech: "Milestones completed! Grabbing fresh espresso." },
+      { x: 240, y: 355, task: "Resting on Sofa", speech: "Sprint finished! Relaxing on the lounge sofa." },
+      { x: 275, y: 175, task: "Browsing Bookshelf", speech: "Reviewing architectural archives." },
+      { x: 590, y: 155, task: "Skyline View", speech: "Taking in the panoramic city skyline view." },
+      { x: 75,  y: 355, task: "Reading in Armchair", speech: "Enjoying a quiet moment in the armchair." },
+      { x: 185, y: 358, task: "Coffee Standby", speech: "Team standby at the lounge coffee table." },
+      { x: 130, y: 175, task: "Milestone Review", speech: "All strategic roadmap goals delivered." },
+      { x: 990, y: 175, task: "Server Bay Standby", speech: "CI/CD server pipeline in idle standby." }
     ];
 
     this.agents.forEach((ag, idx) => {
+      const spot = idleSpots[idx % idleSpots.length];
       ag.state = "coffee";
-      ag.currentTask = "Resting";
-      ag.speech = "Milestones completed! Team in standby.";
-      const spot = loungeSpots[idx % loungeSpots.length];
+      ag.currentTask = spot.task;
+      ag.speech = spot.speech;
       ag.targetX = spot.x;
       ag.targetY = spot.y;
     });
@@ -278,28 +282,34 @@ class OfficeSimulator {
   }
 
   getStationLabel(ag) {
-    if (ag.state === "coffee" || (Math.hypot(ag.x - 130, ag.y - 340) < 110)) {
-      return "Breakout Atrium";
+    if (ag.state === "coffee" || (Math.hypot(ag.x - 160, ag.y - 360) < 130)) {
+      return "Breakout Lounge & Cafe";
     }
-    if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 342) < 45) {
+    if (ag.key === "dispatcher" || Math.hypot(ag.x - 980, ag.y - 345) < 55) {
       return "Git Remote Dispatch";
     }
-    if ((ag.key === "devops" || ag.key === "tester") && Math.hypot(ag.x - 980, ag.y - 165) < 45) {
+    if ((ag.key === "devops" || ag.key === "tester") && Math.hypot(ag.x - 980, ag.y - 165) < 55) {
       return "CI/CD Server Bay";
     }
     if ((ag.key === "security" || (ag.role && ag.role.toLowerCase().includes("security"))) && Math.hypot(ag.x - this.zones.securityVault.x, ag.y - (this.zones.securityVault.y + 35)) < 65) {
       return "Security Operations";
     }
     if (ag.key === "planner" && Math.hypot(ag.x - (this.zones.glassBoard.x + 30), ag.y - (this.zones.glassBoard.y + 35)) < 60) {
-      return "Strategy Board";
+      return "Strategy Roadmap";
     }
     if (ag.key === "researcher" && Math.hypot(ag.x - (this.zones.library.x + 20), ag.y - (this.zones.library.y + 35)) < 60) {
       return "Knowledge Archive";
     }
     if (ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < this.zones.desks.length) {
-      const row = ag.deskIndex < 3 ? "Front" : "Back";
-      const col = (ag.deskIndex % 3) + 1;
-      return `Desk ${ag.deskIndex + 1} (${row} Pod ${col})`;
+      const labels = [
+        "Desk 1 (Eng Pod Alpha)",
+        "Desk 2 (Eng Pod Alpha)",
+        "Desk 3 (Intel Pod Beta)",
+        "Desk 4 (Intel Pod Beta)",
+        "Desk 5 (Architecture Bench)",
+        "Desk 6 (QA Device Bench)"
+      ];
+      return labels[ag.deskIndex] || `Desk ${ag.deskIndex + 1}`;
     }
     return "Studio Floor";
   }
@@ -594,8 +604,8 @@ class OfficeSimulator {
         if (loungeBtn) {
           loungeBtn.onclick = (e) => {
             e.stopPropagation();
-            ag.targetX = 145;
-            ag.targetY = 345;
+            ag.targetX = 160;
+            ag.targetY = 360;
             ag.state = "coffee";
             ag.speech = "Taking a breakout rest.";
             this.selectAgent(ag.id);
@@ -734,7 +744,7 @@ class OfficeSimulator {
     const plankHeight = 36;
     const plankWidth = 180;
 
-    for (let y = this.zones.windowWall.y + this.zones.windowWall.height; y < this.height; y += plankHeight) {
+    for (let y = 80; y < this.height; y += plankHeight) {
       this.ctx.beginPath();
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.width, y);
@@ -750,9 +760,169 @@ class OfficeSimulator {
     }
   }
 
+  drawDepartmentFlooring(palette) {
+    const isNight = (this.lightingMode === 'night');
+
+    // 1. Scandinavian Lounge Wool & Terrazzo Rug
+    const lr = { x: 35, y: 305, w: 285, h: 130, r: 16 };
+    this.ctx.fillStyle = isNight ? '#0f1726' : '#eae3d8';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#d8cfc2';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(lr.x, lr.y, lr.w, lr.h, lr.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Subtle inner stitched border
+    this.ctx.strokeStyle = isNight ? '#1a2436' : '#c9beb0';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.roundRect(lr.x + 4, lr.y + 4, lr.w - 8, lr.h - 8, lr.r - 3);
+    this.ctx.stroke();
+
+    // 2. Pod Alpha Acoustic Felt Rug (Slate / Charcoal)
+    const p1 = { x: 375, y: 215, w: 250, h: 90, r: 8 };
+    this.ctx.fillStyle = isNight ? '#0b121f' : '#f1f5f9';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#cbd5e1';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(p1.x, p1.y, p1.w, p1.h, p1.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // 3. Pod Beta Acoustic Felt Rug (Slate / Charcoal)
+    const p2 = { x: 675, y: 215, w: 250, h: 90, r: 8 };
+    this.ctx.fillStyle = isNight ? '#0b121f' : '#f1f5f9';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#cbd5e1';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(p2.x, p2.y, p2.w, p2.h, p2.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // 4. Architecture & Blueprint Bench Rug
+    const rArch = { x: 430, y: 340, w: 140, h: 90, r: 8 };
+    this.ctx.fillStyle = isNight ? '#0a0f1a' : '#f8fafc';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#cbd5e1';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.roundRect(rArch.x, rArch.y, rArch.w, rArch.h, rArch.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // 5. QA Device Lab Bench Rug
+    const rQA = { x: 730, y: 340, w: 140, h: 90, r: 8 };
+    this.ctx.fillStyle = isNight ? '#0a0f1a' : '#f8fafc';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#cbd5e1';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.roundRect(rQA.x, rQA.y, rQA.w, rQA.h, rQA.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // 6. CI/CD Server Bay Raised Antistatic Technical Floor
+    const sf = { x: 975, y: 95, w: 175, h: 125, r: 6 };
+    this.ctx.fillStyle = isNight ? '#060a12' : '#0f172a';
+    this.ctx.strokeStyle = isNight ? '#1e293b' : '#334155';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(sf.x, sf.y, sf.w, sf.h, sf.r);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Technical metallic perimeter trim
+    this.ctx.strokeStyle = '#0284c7';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(sf.x + 2, sf.y + 2, sf.w - 4, sf.h - 4);
+
+    // Antistatic 25x25 grid seams
+    this.ctx.strokeStyle = isNight ? '#0f172a' : '#1e293b';
+    this.ctx.lineWidth = 1;
+    for (let gx = sf.x + 25; gx < sf.x + sf.w - 4; gx += 25) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(gx, sf.y + 2);
+      this.ctx.lineTo(gx, sf.y + sf.h - 2);
+      this.ctx.stroke();
+    }
+    for (let gy = sf.y + 25; gy < sf.y + sf.h - 4; gy += 25) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(sf.x + 2, gy);
+      this.ctx.lineTo(sf.x + sf.w - 2, gy);
+      this.ctx.stroke();
+    }
+  }
+
+  drawDropPendantLamps(palette) {
+    const pendants = [
+      { x: 500, label: "Pod Alpha" },
+      { x: 800, label: "Pod Beta" }
+    ];
+
+    const isNightOrSunset = (this.lightingMode === 'night' || this.lightingMode === 'sunset');
+
+    pendants.forEach(p => {
+      // 1. Ceiling mount fixture
+      this.ctx.fillStyle = (this.lightingMode === 'night') ? '#334155' : '#64748b';
+      this.ctx.fillRect(p.x - 6, 78, 12, 4);
+
+      // 2. Black suspension cable
+      this.ctx.strokeStyle = (this.lightingMode === 'night') ? '#475569' : '#334155';
+      this.ctx.lineWidth = 1.2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(p.x, 82);
+      this.ctx.lineTo(p.x, 152);
+      this.ctx.stroke();
+
+      // 3. Conical / Bell Pendant Shade
+      const sy = 152;
+      this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#334155';
+      this.ctx.strokeStyle = '#d97706';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(p.x - 3, sy);
+      this.ctx.lineTo(p.x + 3, sy);
+      this.ctx.lineTo(p.x + 13, sy + 14);
+      this.ctx.lineTo(p.x - 13, sy + 14);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.stroke();
+
+      // Brass rim
+      this.ctx.fillStyle = '#f59e0b';
+      this.ctx.fillRect(p.x - 13, sy + 14, 26, 2);
+
+      // 4. Night Mode Warm Conical Floor Spotlight
+      if (isNightOrSunset) {
+        this.ctx.save();
+        const beamGrad = this.ctx.createLinearGradient(p.x, sy + 16, p.x, 315);
+        beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0.22)');
+        beamGrad.addColorStop(0.35, 'rgba(254, 240, 138, 0.11)');
+        beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0.0)');
+        this.ctx.fillStyle = beamGrad;
+        this.ctx.beginPath();
+        this.ctx.moveTo(p.x - 12, sy + 16);
+        this.ctx.lineTo(p.x + 12, sy + 16);
+        this.ctx.lineTo(p.x + 110, 315);
+        this.ctx.lineTo(p.x - 110, 315);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Warm radial floor illumination pool on rug
+        const floorGrad = this.ctx.createRadialGradient(p.x, 260, 10, p.x, 260, 120);
+        floorGrad.addColorStop(0, 'rgba(254, 240, 138, 0.20)');
+        floorGrad.addColorStop(1, 'rgba(254, 240, 138, 0.0)');
+        this.ctx.fillStyle = floorGrad;
+        this.ctx.beginPath();
+        this.ctx.ellipse(p.x, 260, 120, 50, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    });
+  }
+
   drawPanoramicWindows(palette) {
     const wy = 0;
-    const wh = this.zones.windowWall.height + 20;
+    const wh = 80;
 
     const skyGrad = this.ctx.createLinearGradient(0, wy, 0, wh);
     skyGrad.addColorStop(0, palette.skyTop);
@@ -760,16 +930,19 @@ class OfficeSimulator {
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, wy, this.width, wh);
 
+    const isNight = (this.lightingMode === 'night');
+    const isSunset = (this.lightingMode === 'sunset');
+
     // Night Stars (Soft, gentle twinkling night sky)
-    if (this.lightingMode === 'night') {
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    if (isNight) {
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       const stars = [
-        [70, 16], [140, 30], [230, 14], [330, 24], [410, 12],
-        [500, 28], [590, 16], [690, 32], [770, 18], [860, 14],
-        [940, 26], [1030, 16], [1100, 30]
+        [45, 12], [110, 24], [180, 10], [250, 20], [320, 12],
+        [410, 26], [490, 14], [570, 22], [640, 10], [720, 28],
+        [800, 14], [880, 22], [960, 12], [1030, 26], [1110, 14]
       ];
       stars.forEach(([sx, sy], i) => {
-        const twinkle = (this.tickCount + i * 7) % 32 < 16;
+        const twinkle = (this.tickCount + i * 9) % 36 < 18;
         if (twinkle) {
           this.ctx.beginPath();
           this.ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
@@ -778,36 +951,79 @@ class OfficeSimulator {
       });
     }
 
-    // Organic Horizon Landscape (Distant hills / gentle skyline silhouette)
-    if (this.lightingMode === 'night') {
-      this.ctx.fillStyle = '#0a101d';
-    } else if (this.lightingMode === 'sunset') {
-      this.ctx.fillStyle = '#7c2d12';
-    } else {
-      this.ctx.fillStyle = '#86efac';
-    }
+    // Atmospheric City Skyline Silhouettes
+    const buildings = [
+      { x: 10,  w: 55, h: 42, color: isNight ? '#09101d' : (isSunset ? '#451a03' : '#94a3b8') },
+      { x: 70,  w: 48, h: 60, color: isNight ? '#0b1424' : (isSunset ? '#581c87' : '#cbd5e1'), spire: true },
+      { x: 125, w: 65, h: 36, color: isNight ? '#070d17' : (isSunset ? '#431407' : '#94a3b8') },
+      { x: 195, w: 50, h: 52, color: isNight ? '#0b1424' : (isSunset ? '#581c87' : '#cbd5e1') },
+      { x: 250, w: 80, h: 44, color: isNight ? '#09101d' : (isSunset ? '#451a03' : '#94a3b8') },
+      { x: 340, w: 60, h: 64, color: isNight ? '#0e182a' : (isSunset ? '#701a75' : '#e2e8f0'), spire: true },
+      { x: 410, w: 75, h: 48, color: isNight ? '#070d17' : (isSunset ? '#431407' : '#94a3b8') },
+      { x: 495, w: 55, h: 56, color: isNight ? '#0b1424' : (isSunset ? '#581c87' : '#cbd5e1') },
+      { x: 560, w: 85, h: 40, color: isNight ? '#09101d' : (isSunset ? '#451a03' : '#94a3b8') },
+      { x: 655, w: 65, h: 62, color: isNight ? '#0e182a' : (isSunset ? '#701a75' : '#e2e8f0'), spire: true },
+      { x: 730, w: 52, h: 46, color: isNight ? '#070d17' : (isSunset ? '#431407' : '#94a3b8') },
+      { x: 790, w: 78, h: 54, color: isNight ? '#0b1424' : (isSunset ? '#581c87' : '#cbd5e1') },
+      { x: 880, w: 60, h: 42, color: isNight ? '#09101d' : (isSunset ? '#451a03' : '#94a3b8') },
+      { x: 950, w: 70, h: 58, color: isNight ? '#0e182a' : (isSunset ? '#701a75' : '#e2e8f0'), spire: true },
+      { x: 1030, w: 60, h: 46, color: isNight ? '#070d17' : (isSunset ? '#431407' : '#94a3b8') },
+      { x: 1100, w: 55, h: 38, color: isNight ? '#09101d' : (isSunset ? '#451a03' : '#94a3b8') }
+    ];
 
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, wh);
-    this.ctx.quadraticCurveTo(this.width * 0.15, wh - 16, this.width * 0.3, wh - 8);
-    this.ctx.quadraticCurveTo(this.width * 0.45, wh - 20, this.width * 0.6, wh - 10);
-    this.ctx.quadraticCurveTo(this.width * 0.78, wh - 18, this.width * 0.9, wh - 12);
-    this.ctx.quadraticCurveTo(this.width * 0.96, wh - 6, this.width, wh - 10);
-    this.ctx.lineTo(this.width, wh);
-    this.ctx.closePath();
-    this.ctx.fill();
+    buildings.forEach(b => {
+      const by = wh - b.h;
+      this.ctx.fillStyle = b.color;
+      this.ctx.fillRect(b.x, by, b.w, b.h);
 
-    // Clean Architectural Window Mullions
+      // Antenna spire with blinking red aviation beacon
+      if (b.spire) {
+        this.ctx.strokeStyle = b.color;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(b.x + b.w / 2, by);
+        this.ctx.lineTo(b.x + b.w / 2, by - 12);
+        this.ctx.stroke();
+
+        if (isNight) {
+          const beaconBlink = (this.tickCount % 40 < 20);
+          this.ctx.fillStyle = beaconBlink ? '#ef4444' : '#7f1d1d';
+          this.ctx.beginPath();
+          this.ctx.arc(b.x + b.w / 2, by - 12, 1.8, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+      }
+
+      // Illuminated skyscraper windows at night
+      if (isNight) {
+        const rows = Math.floor(b.h / 8) - 1;
+        const cols = Math.floor(b.w / 7) - 1;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const seed = (b.x * 13 + r * 17 + c * 23);
+            if (seed % 3 === 0) {
+              const isAmber = (seed % 5 === 0);
+              this.ctx.fillStyle = isAmber ? 'rgba(254, 240, 138, 0.75)' : 'rgba(186, 230, 253, 0.65)';
+              this.ctx.fillRect(b.x + 4 + c * 7, by + 6 + r * 8, 3, 4);
+            }
+          }
+        }
+      }
+    });
+
+    // Clean Architectural Steel Window Mullions
     this.ctx.fillStyle = palette.windowFrame;
-    this.ctx.fillRect(0, wh - 6, this.width, 6);
-    this.ctx.fillRect(0, 0, this.width, 8);
+    this.ctx.fillRect(0, 0, this.width, 8); // top transom header
+    this.ctx.fillRect(0, wh - 6, this.width, 6); // bottom sill
 
-    const paneWidth = this.width / 6;
-    for (let i = 1; i < 6; i++) {
-      this.ctx.fillRect(i * paneWidth - 3, 0, 6, wh);
+    const paneWidth = this.width / 8;
+    for (let i = 1; i < 8; i++) {
+      this.ctx.fillRect(i * paneWidth - 2.5, 0, 5, wh);
+      // Horizontal mid-mullion bar
+      this.ctx.fillRect(i * paneWidth - 20, 38, 40, 2);
     }
 
-    // Gentle Sunlight Rays streaming across the studio floor
+    // Gentle Sunlight Rays streaming across the studio floor in day/sunset
     if (palette.sunlightRay) {
       this.ctx.save();
       this.ctx.fillStyle = palette.sunlightRay;
@@ -1138,18 +1354,50 @@ class OfficeSimulator {
   }
 
   drawMarbleEspressoBar(x, y, palette) {
-    // 1. Scandinavian Cafe Woven Rug
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#131c28' : '#eae3d8';
-    this.ctx.strokeStyle = (this.lightingMode === 'night') ? '#243247' : '#d8cfc2';
-    this.ctx.lineWidth = 1;
+    const isNight = (this.lightingMode === 'night');
+    const isSunset = (this.lightingMode === 'sunset');
+
+    // 1. Modern Arc Floor Lamp (Warm Ambient Scandinavian Lighting)
+    const lx = x - 105;
+    const ly = y - 10;
+    // Marble circular base
+    this.ctx.fillStyle = isNight ? '#334155' : '#94a3b8';
     this.ctx.beginPath();
-    this.ctx.roundRect(x - 88, y - 24, 186, 76, 10);
+    this.ctx.ellipse(lx, ly + 25, 10, 4, 0, 0, Math.PI * 2);
     this.ctx.fill();
+
+    // Brushed steel graceful arched arm
+    this.ctx.strokeStyle = isNight ? '#cbd5e1' : '#64748b';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(lx, ly + 25);
+    this.ctx.quadraticCurveTo(lx, ly - 35, lx + 35, ly - 35);
+    this.ctx.quadraticCurveTo(lx + 65, ly - 35, lx + 65, ly - 15);
     this.ctx.stroke();
 
+    // Bell shade
+    this.ctx.fillStyle = '#f59e0b';
+    this.ctx.beginPath();
+    this.ctx.roundRect(lx + 58, ly - 15, 14, 9, [4, 4, 1, 1]);
+    this.ctx.fill();
+
+    // Night / Sunset Ambient Amber Floor Light Glow
+    if (isNight || isSunset) {
+      this.ctx.save();
+      const lampGlow = this.ctx.createRadialGradient(lx + 65, ly + 8, 4, lx + 65, ly + 15, 85);
+      lampGlow.addColorStop(0, 'rgba(251, 191, 36, 0.24)');
+      lampGlow.addColorStop(0.5, 'rgba(251, 191, 36, 0.10)');
+      lampGlow.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+      this.ctx.fillStyle = lampGlow;
+      this.ctx.beginPath();
+      this.ctx.ellipse(lx + 65, ly + 15, 85, 45, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
     // 2. Barista Espresso Bar Counter
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#131b26' : '#ffffff';
-    this.ctx.strokeStyle = (this.lightingMode === 'night') ? '#2d3d54' : '#cbd5e1';
+    this.ctx.fillStyle = isNight ? '#131b26' : '#ffffff';
+    this.ctx.strokeStyle = isNight ? '#2d3d54' : '#cbd5e1';
     this.ctx.lineWidth = 1.5;
     this.ctx.beginPath();
     this.ctx.roundRect(x - 22, y - 16, 68, 28, 6);
@@ -1157,7 +1405,7 @@ class OfficeSimulator {
     this.ctx.stroke();
 
     // Counter Front Acoustic Slats (Vertical timber pattern)
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#f1f5f9';
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#f1f5f9';
     for (let sl = x - 16; sl < x + 40; sl += 5) {
       this.ctx.fillRect(sl, y - 2, 2.5, 12);
     }
@@ -1203,8 +1451,8 @@ class OfficeSimulator {
     this.ctx.fillRect(x - 2, y - 38, 4, 2);
 
     // 4. Mid-Century Modern Armchair (Cozy lounge seating)
-    const ax = x - 68;
-    const ay = y - 8;
+    const ax = x - 85;
+    const ay = y - 5;
     // Wooden Legs
     this.ctx.strokeStyle = '#78350f';
     this.ctx.lineWidth = 1.5;
@@ -1216,7 +1464,7 @@ class OfficeSimulator {
     this.ctx.stroke();
 
     // Chair Backrest & Cushion
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#334155';
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#334155';
     this.ctx.strokeStyle = '#b45309';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
@@ -1225,12 +1473,54 @@ class OfficeSimulator {
     this.ctx.stroke();
 
     // Padded Armrests
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#243247' : '#475569';
+    this.ctx.fillStyle = isNight ? '#243247' : '#475569';
     this.ctx.fillRect(ax - 17, ay + 2, 4, 14);
     this.ctx.fillRect(ax + 13, ay + 2, 4, 14);
 
-    // 5. Birch Coffee Table
-    const tx = x + 60;
+    // 5. Modern Curved Nordic Lounge Sofa (Seats 2 agents comfortably!)
+    const sx = x + 80;
+    const sy = y - 5;
+
+    // Tapered wooden legs
+    this.ctx.strokeStyle = '#78350f';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(sx - 26, sy + 14);
+    this.ctx.lineTo(sx - 29, sy + 24);
+    this.ctx.moveTo(sx + 26, sy + 14);
+    this.ctx.lineTo(sx + 29, sy + 24);
+    this.ctx.moveTo(sx, sy + 14);
+    this.ctx.lineTo(sx, sy + 24);
+    this.ctx.stroke();
+
+    // Sofa curved backrest
+    this.ctx.fillStyle = isNight ? '#131e2e' : '#334155';
+    this.ctx.strokeStyle = isNight ? '#2d3d54' : '#475569';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.roundRect(sx - 30, sy - 12, 60, 26, [10, 10, 6, 6]);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Padded seat cushion
+    this.ctx.fillStyle = isNight ? '#1a273a' : '#1e293b';
+    this.ctx.beginPath();
+    this.ctx.roundRect(sx - 28, sy + 2, 56, 12, 4);
+    this.ctx.fill();
+
+    // Accent throw pillows (amber & forest green)
+    this.ctx.fillStyle = '#d97706';
+    this.ctx.beginPath();
+    this.ctx.roundRect(sx - 26, sy - 4, 10, 10, 2);
+    this.ctx.fill();
+
+    this.ctx.fillStyle = '#15803d';
+    this.ctx.beginPath();
+    this.ctx.roundRect(sx + 16, sy - 4, 10, 10, 2);
+    this.ctx.fill();
+
+    // 6. Round Birch Coffee Table
+    const tx = x + 25;
     const ty = y + 2;
     // 3 Peg Legs
     this.ctx.strokeStyle = '#a16207';
@@ -1243,7 +1533,7 @@ class OfficeSimulator {
     this.ctx.stroke();
 
     // Round Birch Top
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#fdf8f0';
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#fdf8f0';
     this.ctx.strokeStyle = '#d4b996';
     this.ctx.lineWidth = 1.5;
     this.ctx.beginPath();
@@ -1270,8 +1560,8 @@ class OfficeSimulator {
 
     // Station Badge
     this.ctx.font = 'bold 8.5px sans-serif';
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#fcd34d' : '#92400e';
-    this.ctx.fillText("BREAKOUT ATRIUM", x - 38, y + 36);
+    this.ctx.fillStyle = isNight ? '#fcd34d' : '#92400e';
+    this.ctx.fillText("BREAKOUT LOUNGE & CAFE", x - 48, y + 36);
   }
 
   drawGitPostOffice(x, y, palette) {
@@ -1551,7 +1841,9 @@ class OfficeSimulator {
     this.renderBubble(ag, px, py - 24, palette);
   }
 
-  drawDeskSurface(x, y, isOccupied, seatedAgent, palette) {
+  drawDeskSurface(x, y, isOccupied, seatedAgent, palette, idx = 0) {
+    const isNight = (this.lightingMode === 'night');
+
     // 1. Scandinavian Solid Wood Tabletop (Spacious 84px wide executive desk)
     this.ctx.fillStyle = palette.deskTop;
     this.ctx.strokeStyle = palette.deskBorder;
@@ -1562,7 +1854,7 @@ class OfficeSimulator {
     this.ctx.stroke();
 
     // Modern Steel Desk Legs
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#223044' : '#94a3b8';
+    this.ctx.fillStyle = isNight ? '#223044' : '#94a3b8';
     this.ctx.fillRect(x - 38, y + 18, 4, 14);
     this.ctx.fillRect(x + 34, y + 18, 4, 14);
 
@@ -1572,7 +1864,7 @@ class OfficeSimulator {
     this.ctx.roundRect(x - 24, y - 4, 48, 16, 3);
     this.ctx.fill();
 
-    // Context Window & Token Utilization HUD Bar (Market-leading feature from Pixel Agents & OpenHands)
+    // Context Window & Token Utilization HUD Bar
     if (isOccupied && seatedAgent) {
       const tokenRatio = seatedAgent.contextRatio || 0.48;
       const barW = 32;
@@ -1580,7 +1872,7 @@ class OfficeSimulator {
       const bx = x - barW / 2;
       const by = y - 6;
 
-      this.ctx.fillStyle = (this.lightingMode === 'night') ? '#0b111a' : '#1e293b';
+      this.ctx.fillStyle = isNight ? '#0b111a' : '#1e293b';
       this.ctx.beginPath();
       this.ctx.roundRect(bx - 1, by - 0.5, barW + 2, barH + 1, 1);
       this.ctx.fill();
@@ -1599,8 +1891,8 @@ class OfficeSimulator {
     }
 
     // 3. Centered Mechanical Keyboard
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#cbd5e1';
-    this.ctx.strokeStyle = (this.lightingMode === 'night') ? '#334155' : '#94a3b8';
+    this.ctx.fillStyle = isNight ? '#1e293b' : '#cbd5e1';
+    this.ctx.strokeStyle = isNight ? '#334155' : '#94a3b8';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.roundRect(x - 14, y, 22, 6, 1.5);
@@ -1609,17 +1901,17 @@ class OfficeSimulator {
 
     // Keyboard Keycaps Accent Row (Illuminated RGB/Cyan on active typing)
     const keyGlow = isOccupied ? (((this.tickCount % 12) < 6) ? '#38bdf8' : '#0284c7') : '#64748b';
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? (isOccupied ? keyGlow : '#334155') : keyGlow;
+    this.ctx.fillStyle = isNight ? (isOccupied ? keyGlow : '#334155') : keyGlow;
     this.ctx.fillRect(x - 12, y + 2, 18, 2);
 
     // 4. Ergonomic Precision Mouse
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#334155' : '#94a3b8';
+    this.ctx.fillStyle = isNight ? '#334155' : '#94a3b8';
     this.ctx.beginPath();
     this.ctx.roundRect(x + 12, y + 1, 5, 7, 2);
     this.ctx.fill();
 
     // 5. Ceramic Coffee Mug with Rising Steam
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#e2e8f0' : '#ffffff';
+    this.ctx.fillStyle = isNight ? '#e2e8f0' : '#ffffff';
     this.ctx.strokeStyle = '#cbd5e1';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
@@ -1640,89 +1932,213 @@ class OfficeSimulator {
       this.ctx.fill();
     }
 
-    // 6. Left Wing: Vertical Docs / Terminal Monitor (Angled inward)
-    // Heavy Silver Desk Stand
-    this.ctx.fillStyle = '#64748b';
-    this.ctx.fillRect(x - 32, y - 8, 4, 6);
-    this.ctx.fillRect(x - 34, y - 2, 8, 2);
+    // 6. Specialized Equipment by Desk Index
+    if (idx === 4) {
+      // --- Desk 5: Architecture & Blueprint Drafting Bench ---
+      // Blueprint draft paper on mat
+      this.ctx.fillStyle = isNight ? '#0369a1' : '#0284c7';
+      this.ctx.fillRect(x - 22, y - 2, 12, 10);
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 0.5;
+      this.ctx.strokeRect(x - 20, y, 8, 6);
 
-    // Vertical Bezel
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#080d16' : '#1e293b';
-    this.ctx.beginPath();
-    this.ctx.roundRect(x - 38, y - 28, 16, 26, 2);
-    this.ctx.fill();
+      // Drafting Arm Lamp on Left
+      this.ctx.fillStyle = '#64748b';
+      this.ctx.fillRect(x - 36, y - 4, 4, 12);
+      this.ctx.strokeStyle = '#94a3b8';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x - 34, y - 4);
+      this.ctx.lineTo(x - 38, y - 22);
+      this.ctx.lineTo(x - 26, y - 24);
+      this.ctx.stroke();
 
-    // Vertical Screen: Terminal / Logs Editor
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#0b111a' : '#0f172a';
-    this.ctx.fillRect(x - 36, y - 26, 12, 22);
+      // Lamp Shade & Amber Glow
+      this.ctx.fillStyle = '#d97706';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x - 28, y - 28, 10, 7, 2);
+      this.ctx.fill();
 
-    if (isOccupied) {
-      // Terminal Logs Lines (Cyan, Green, Yellow with active scrolling cadence)
-      const logScroll = Math.floor(this.tickCount * 0.08) % 3;
-      const logColors = ['#38bdf8', '#4ade80', '#facc15', '#94a3b8', '#38bdf8', '#4ade80'];
-      for (let li = 0; li < 6; li++) {
-        const cIdx = (li + logScroll) % logColors.length;
-        const lw = 5 + ((li * 3 + this.tickCount) % 5);
-        this.ctx.fillStyle = logColors[cIdx];
-        this.ctx.fillRect(x - 34, y - 24 + (li * 3.5), Math.min(lw, 9), 1.5);
-      }
-      // Blinking command cursor prompt
-      if (this.tickCount % 20 < 10) {
-        this.ctx.fillStyle = '#4ade80';
-        this.ctx.fillRect(x - 34, y - 4, 3, 2);
-      }
-    }
+      // Right: Ultrawide Curved Architecture System Graph Display
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x + 10, y - 28, 30, 20, 3);
+      this.ctx.fill();
+      this.ctx.fillStyle = isNight ? '#0b111a' : '#0f172a';
+      this.ctx.fillRect(x + 12, y - 26, 26, 16);
 
-    // 7. Right Wing: Articulated Curved Display (Angled inward)
-    // Articulated Monitor Arm
-    this.ctx.strokeStyle = '#94a3b8';
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x + 22, y - 4);
-    this.ctx.lineTo(x + 26, y - 14);
-    this.ctx.stroke();
-
-    // Curved Display Bezel
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#080d16' : '#1e293b';
-    this.ctx.beginPath();
-    this.ctx.roundRect(x + 14, y - 28, 26, 20, 3);
-    this.ctx.fill();
-
-    // Display Screen: Syntax Highlighted IDE
-    this.ctx.fillStyle = (this.lightingMode === 'night') ? '#0d1522' : '#f8fafc';
-    this.ctx.fillRect(x + 16, y - 26, 22, 16);
-
-    if (isOccupied) {
-      // Live streaming syntax code lines with animated lengths & blinking cursor!
-      const cursorBlink = (this.tickCount % 20 < 10);
-
-      // Line 1 (Function / Keyword)
-      const l1w = 9 + Math.sin(this.tickCount * 0.15) * 2;
+      // System Architecture Node Flowchart on Screen
       this.ctx.fillStyle = '#38bdf8';
-      this.ctx.fillRect(x + 18, y - 23, l1w, 2);
+      this.ctx.fillRect(x + 14, y - 24, 6, 4);
       this.ctx.fillStyle = '#4ade80';
-      this.ctx.fillRect(x + 19 + l1w, y - 23, 6, 2);
-
-      // Line 2 (Variable / String)
-      const l2w = 11 + Math.cos(this.tickCount * 0.12) * 3;
-      this.ctx.fillStyle = '#fb923c';
-      this.ctx.fillRect(x + 18, y - 19, l2w, 2);
-
-      // Line 3 (Logic / Call)
+      this.ctx.fillRect(x + 23, y - 20, 6, 4);
       this.ctx.fillStyle = '#c084fc';
-      this.ctx.fillRect(x + 20, y - 15, 11, 2);
+      this.ctx.fillRect(x + 30, y - 24, 6, 4);
+      // Connecting wire lines
+      this.ctx.strokeStyle = '#64748b';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 20, y - 22);
+      this.ctx.lineTo(x + 23, y - 18);
+      this.ctx.lineTo(x + 30, y - 22);
+      this.ctx.stroke();
 
-      // Line 4 (Active editing line with blinking cursor)
-      const l4w = 6 + (Math.sin(this.tickCount * 0.25) * 2);
+    } else if (idx === 5) {
+      // --- Desk 6: QA & Mobile Device Test Bench ---
+      // Left: Mobile phone cradle stand with live test LED
+      this.ctx.fillStyle = isNight ? '#0f172a' : '#334155';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x - 36, y - 20, 10, 18, 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = isNight ? '#020617' : '#0f172a';
+      this.ctx.fillRect(x - 35, y - 18, 8, 14);
+
+      // Phone screen test progress
       this.ctx.fillStyle = '#22c55e';
-      this.ctx.fillRect(x + 18, y - 12, l4w, 2);
-      if (cursorBlink) {
+      this.ctx.fillRect(x - 34, y - 16, 6, 2);
+      this.ctx.fillRect(x - 34, y - 12, 6, 2);
+      const testBlink = (this.tickCount % 20 < 10);
+      this.ctx.fillStyle = testBlink ? '#22c55e' : '#14532d';
+      this.ctx.fillRect(x - 34, y - 8, 3, 3);
+
+      // Right: Tablet Device Stand (iPad QA runner)
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x + 14, y - 26, 26, 18, 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = isNight ? '#0b111a' : '#0f172a';
+      this.ctx.fillRect(x + 16, y - 24, 22, 14);
+
+      // Tablet QA test report lines
+      this.ctx.fillStyle = '#4ade80';
+      this.ctx.fillRect(x + 18, y - 22, 8, 2);
+      this.ctx.fillStyle = '#22c55e';
+      this.ctx.fillRect(x + 18, y - 18, 12, 2);
+      this.ctx.fillStyle = '#38bdf8';
+      this.ctx.fillRect(x + 18, y - 14, 15, 2);
+
+    } else if (idx === 2 || idx === 3) {
+      // --- Desks 3 & 4: Pod Beta Intelligence & Code Review ---
+      // Left: Vertical PR diff screen with green/red diff markers
+      this.ctx.fillStyle = '#64748b';
+      this.ctx.fillRect(x - 32, y - 8, 4, 6);
+      this.ctx.fillRect(x - 34, y - 2, 8, 2);
+
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x - 38, y - 28, 16, 26, 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = isNight ? '#0b111a' : '#0f172a';
+      this.ctx.fillRect(x - 36, y - 26, 12, 22);
+
+      if (isOccupied) {
+        // Diff additions (green) and deletions (red)
+        for (let di = 0; di < 5; di++) {
+          const isAdd = (di % 2 === 0);
+          this.ctx.fillStyle = isAdd ? '#22c55e' : '#ef4444';
+          this.ctx.fillRect(x - 34, y - 24 + di * 4, isAdd ? 8 : 6, 2);
+        }
+      }
+
+      // Right: Articulated Curved Review & AI Intelligence Display
+      this.ctx.strokeStyle = '#94a3b8';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 22, y - 4);
+      this.ctx.lineTo(x + 26, y - 14);
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x + 14, y - 28, 26, 20, 3);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = isNight ? '#0d1522' : '#f8fafc';
+      this.ctx.fillRect(x + 16, y - 26, 22, 16);
+
+      if (isOccupied) {
+        // AI Review Stream (Purple, Cyan, Green)
+        this.ctx.fillStyle = '#a855f7';
+        this.ctx.fillRect(x + 18, y - 23, 12, 2);
         this.ctx.fillStyle = '#38bdf8';
-        this.ctx.fillRect(x + 19 + l4w, y - 13, 2, 3);
+        this.ctx.fillRect(x + 18, y - 19, 15, 2);
+        this.ctx.fillStyle = '#22c55e';
+        this.ctx.fillRect(x + 18, y - 15, 9, 2);
+      }
+
+    } else {
+      // --- Desks 1 & 2: Pod Alpha Core Engineering Battlestations ---
+      // Left: Vertical Docs / Terminal Monitor
+      this.ctx.fillStyle = '#64748b';
+      this.ctx.fillRect(x - 32, y - 8, 4, 6);
+      this.ctx.fillRect(x - 34, y - 2, 8, 2);
+
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x - 38, y - 28, 16, 26, 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = isNight ? '#0b111a' : '#0f172a';
+      this.ctx.fillRect(x - 36, y - 26, 12, 22);
+
+      if (isOccupied) {
+        const logScroll = Math.floor(this.tickCount * 0.08) % 3;
+        const logColors = ['#38bdf8', '#4ade80', '#facc15', '#94a3b8', '#38bdf8', '#4ade80'];
+        for (let li = 0; li < 6; li++) {
+          const cIdx = (li + logScroll) % logColors.length;
+          const lw = 5 + ((li * 3 + this.tickCount) % 5);
+          this.ctx.fillStyle = logColors[cIdx];
+          this.ctx.fillRect(x - 34, y - 24 + (li * 3.5), Math.min(lw, 9), 1.5);
+        }
+        if (this.tickCount % 20 < 10) {
+          this.ctx.fillStyle = '#4ade80';
+          this.ctx.fillRect(x - 34, y - 4, 3, 2);
+        }
+      }
+
+      // Right: Articulated Curved Display: Syntax Highlighted IDE
+      this.ctx.strokeStyle = '#94a3b8';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 22, y - 4);
+      this.ctx.lineTo(x + 26, y - 14);
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = isNight ? '#080d16' : '#1e293b';
+      this.ctx.beginPath();
+      this.ctx.roundRect(x + 14, y - 28, 26, 20, 3);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = isNight ? '#0d1522' : '#f8fafc';
+      this.ctx.fillRect(x + 16, y - 26, 22, 16);
+
+      if (isOccupied) {
+        const cursorBlink = (this.tickCount % 20 < 10);
+        const l1w = 9 + Math.sin(this.tickCount * 0.15) * 2;
+        this.ctx.fillStyle = '#38bdf8';
+        this.ctx.fillRect(x + 18, y - 23, l1w, 2);
+        this.ctx.fillStyle = '#4ade80';
+        this.ctx.fillRect(x + 19 + l1w, y - 23, 6, 2);
+
+        const l2w = 11 + Math.cos(this.tickCount * 0.12) * 3;
+        this.ctx.fillStyle = '#fb923c';
+        this.ctx.fillRect(x + 18, y - 19, l2w, 2);
+
+        this.ctx.fillStyle = '#c084fc';
+        this.ctx.fillRect(x + 20, y - 15, 11, 2);
+
+        const l4w = 6 + (Math.sin(this.tickCount * 0.25) * 2);
+        this.ctx.fillStyle = '#22c55e';
+        this.ctx.fillRect(x + 18, y - 12, l4w, 2);
+        if (cursorBlink) {
+          this.ctx.fillStyle = '#38bdf8';
+          this.ctx.fillRect(x + 19 + l4w, y - 13, 2, 3);
+        }
       }
     }
 
-    // 8. Night Mode: Ambient Lighting and Monitor Glows
+    // 7. Night Mode: Ambient Lighting and Monitor Glows
     if (palette.nightLamps && isOccupied) {
       this.ctx.save();
       // Warm desk lamp glow centered on mat & keyboard
@@ -1748,12 +2164,14 @@ class OfficeSimulator {
 
   drawWalkingAvatar(ag, palette) {
     const isSelected = (ag.id === this.selectedAgentId);
-    const isArmchairSeated = (ag.state === "coffee" && Math.hypot(ag.x - 72, ag.y - 340) < 14);
+    const isArmchairSeated = (ag.state === "coffee" && Math.hypot(ag.x - 75, ag.y - 355) < 18);
+    const isSofaSeated = (ag.state === "coffee" && Math.hypot(ag.x - 240, ag.y - 355) < 22);
+    const isLoungeSeated = isArmchairSeated || isSofaSeated;
     const isAtServerLab = (Math.hypot(ag.x - 980, ag.y - 165) < 30);
-    const isAtPostOffice = (ag.state === "shipping" || Math.hypot(ag.x - 980, ag.y - 342) < 25);
-    const isCoffee = (ag.state === "coffee" && !isArmchairSeated);
+    const isAtPostOffice = (ag.state === "shipping" || Math.hypot(ag.x - 980, ag.y - 345) < 30);
+    const isCoffee = (ag.state === "coffee" && !isLoungeSeated);
 
-    const isWalking = (ag.state === "walking" && !isArmchairSeated);
+    const isWalking = (ag.state === "walking" && !isLoungeSeated);
     const walkCadence = isWalking ? Math.sin(this.tickCount * 0.35) : 0;
     const walkBob = isWalking ? (Math.abs(Math.sin(this.tickCount * 0.35)) * 2.5) : 0;
     const legSwing = walkCadence * 3.5;
@@ -1770,8 +2188,8 @@ class OfficeSimulator {
       this.ctx.stroke();
     }
 
-    // Shadow (Only when not seated in armchair)
-    if (!isArmchairSeated) {
+    // Shadow (Only when not seated in armchair or sofa)
+    if (!isLoungeSeated) {
       this.ctx.fillStyle = palette.ambientShadow;
       this.ctx.beginPath();
       this.ctx.ellipse(px, py + 18, 12 + (isWalking ? 2 : 0), 5, 0, 0, Math.PI * 2);
@@ -1780,7 +2198,7 @@ class OfficeSimulator {
 
     // Legs & 2-Beat Footstep Stride Cadence
     this.ctx.fillStyle = (this.lightingMode === 'night') ? '#1e293b' : '#334155';
-    if (isArmchairSeated) {
+    if (isLoungeSeated) {
       // Seated tucked legs
       this.ctx.fillRect(px - 5, py + 4, 4, 8);
       this.ctx.fillRect(px + 1, py + 4, 4, 8);
@@ -1804,17 +2222,15 @@ class OfficeSimulator {
     this.ctx.roundRect(px - 9, py - 8, 18, 16, 4);
     this.ctx.fill();
 
-    // Armchair Coffee Sipping Cycle Parameters:
+    // Lounge Coffee Sipping Cycle Parameters:
     const sipCycle = (this.tickCount + ag.id * 75) % 320;
     let sipLift = 0;
     let isSipping = false;
-    if (isArmchairSeated) {
+    if (isLoungeSeated) {
       if (sipCycle >= 160 && sipCycle < 200) {
-        // Lifting mug upwards toward mouth
         const prog = (sipCycle - 160) / 40;
         sipLift = -prog * 9;
       } else if (sipCycle >= 200 && sipCycle < 250) {
-        // Mug held at mouth, taking a sip!
         sipLift = -9;
         isSipping = true;
         if (sipCycle === 225 && this.spawnParticle) {
@@ -1822,15 +2238,13 @@ class OfficeSimulator {
           if (window.chiptuneAudio) window.chiptuneAudio.playCoffeeSteam();
         }
       } else if (sipCycle >= 250 && sipCycle < 280) {
-        // Lowering mug back down to lap
         const prog = 1 - ((sipCycle - 250) / 30);
         sipLift = -prog * 9;
       }
     }
 
     // Arms & Hands based on Interaction:
-    if (isArmchairSeated) {
-      // Both arms holding ceramic mug with dynamic sipping motion
+    if (isLoungeSeated) {
       this.ctx.fillStyle = ag.color;
       this.ctx.fillRect(px - 11, py - 2 + sipLift * 0.5, 4, 8);
       this.ctx.fillRect(px + 7, py - 2 + sipLift * 0.5, 4, 8);
@@ -1850,6 +2264,7 @@ class OfficeSimulator {
       this.ctx.roundRect(px - 4, py + 2 + sipLift, 8, 8, 2);
       this.ctx.fill();
       this.ctx.stroke();
+
       // Mug handle
       this.ctx.beginPath();
       this.ctx.arc(px + 5, py + 6 + sipLift, 2, -Math.PI * 0.5, Math.PI * 0.5);
@@ -2136,13 +2551,19 @@ class OfficeSimulator {
     // 1. Draw Hardwood Floor
     this.drawHardwoodFloor(palette);
 
-    // 2. Draw Panoramic Windows with Organic Horizon & Night Stars
+    // 2. Draw Department Flooring & Acoustic Rugs
+    this.drawDepartmentFlooring(palette);
+
+    // 3. Draw Panoramic Windows with City Skyline & Night Stars
     this.drawPanoramicWindows(palette);
 
-    // 3. Draw Greenery Plants
+    // 4. Draw Drop Pendant Lamps & Conical Lighting (Night / Sunset)
+    this.drawDropPendantLamps(palette);
+
+    // 5. Draw Greenery Plants
     this.zones.plants.forEach(p => this.drawPlant(p.x, p.y));
 
-    // 4. Draw Stations (Clean, uncluttered, no giant easel legs or empty collab hub!)
+    // 6. Draw Stations
     this.drawStrategyBoard(this.zones.glassBoard.x, this.zones.glassBoard.y, palette);
     this.drawOakBookshelf(this.zones.library.x, this.zones.library.y, palette);
     this.drawSecurityVault(this.zones.securityVault.x, this.zones.securityVault.y, palette);
@@ -2150,7 +2571,7 @@ class OfficeSimulator {
     this.drawMarbleEspressoBar(this.zones.espressoBar.x, this.zones.espressoBar.y, palette);
     this.drawGitPostOffice(this.zones.postOffice.x, this.zones.postOffice.y, palette);
 
-    // 5. Physics & Movement Update
+    // 7. Physics & Movement Update
     this.agents.forEach(ag => {
       const dx = ag.targetX - ag.x;
       const dy = ag.targetY - ag.y;
@@ -2165,12 +2586,12 @@ class OfficeSimulator {
         ag.x = ag.targetX;
         ag.y = ag.targetY;
         if (ag.state === "walking" || ag.state === "shipping") {
-          const atLounge = Math.hypot(ag.x - this.zones.espressoBar.x, ag.y - this.zones.espressoBar.y) < 95;
-          const atPostOffice = Math.hypot(ag.x - 980, ag.y - 342) < 30;
-          const atServerLab = Math.hypot(ag.x - 980, ag.y - 165) < 30;
+          const atLounge = Math.hypot(ag.x - this.zones.espressoBar.x, ag.y - this.zones.espressoBar.y) < 130;
+          const atPostOffice = Math.hypot(ag.x - 980, ag.y - 345) < 40;
+          const atServerLab = Math.hypot(ag.x - 980, ag.y - 165) < 40;
           if (atLounge) {
             ag.state = "coffee";
-            ag.currentTask = "Resting";
+            if (!ag.currentTask || ag.currentTask === "Executing Task") ag.currentTask = "Resting";
           } else if (atPostOffice) {
             ag.state = "shipping";
             ag.speech = "Commit pushed to remote origin/main.";
@@ -2187,18 +2608,18 @@ class OfficeSimulator {
       }
     });
 
-    // 6. Draw 4 Spacious Executive Workstations with Authentic Ergonomic Layering
+    // 8. Draw Workstations with Authentic Ergonomic Layering
     // Layer A: Ergonomic Chairs behind all desks
     this.zones.desks.forEach(desk => {
       this.drawErgonomicChair(desk.x, desk.y, palette);
     });
 
-    // Layer B: Desk Surfaces, Leather Mats, Keyboards & Angled Side Monitors
+    // Layer B: Desk Surfaces, Leather Mats, Keyboards & Specialized Displays
     this.zones.desks.forEach((desk, idx) => {
       const seatedAgent = this.agents.find(a => 
         (a.deskIndex === idx && Math.abs(a.x - desk.x) < 15 && Math.abs(a.y - (desk.y - 14)) < 15)
       );
-      this.drawDeskSurface(desk.x, desk.y, !!seatedAgent, seatedAgent, palette);
+      this.drawDeskSurface(desk.x, desk.y, !!seatedAgent, seatedAgent, palette, idx);
     });
 
     // Layer C: Seated Developers (Unobstructed face, studio headphones, hands on keyboard)
@@ -2221,10 +2642,10 @@ class OfficeSimulator {
       }
     });
 
-    // 7. Render dynamic particle atmosphere (code tokens, ideation sparks, steam, seals, confetti)
+    // 9. Render dynamic particle atmosphere (code tokens, ideation sparks, steam, seals, confetti)
     this.updateAndRenderParticles();
 
-    // 8. Milestone Celebration Trigger (Checks if all mission steps transitioned to completed)
+    // 10. Milestone Celebration Trigger (Checks if all mission steps transitioned to completed)
     const allDone = (this.missionSteps.length > 0 && this.missionSteps.every(s => s.status === "done"));
     if (allDone && !this.wasAllStepsDone) {
       this.wasAllStepsDone = true;
