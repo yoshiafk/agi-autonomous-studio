@@ -641,14 +641,18 @@ class OfficeSimulator {
     this.updateRosterUI();
   }
 
-  handleToolAction(toolName, args, subagentRole) {
+  handleToolAction(toolName, args = {}, subagentRole) {
     let target = this.agents[0];
+    const summary = args.toolSummary || null;
 
     if (subagentRole) {
-      if (subagentRole.toLowerCase().includes("test") || subagentRole.toLowerCase().includes("devops")) {
+      const roleLower = subagentRole.toLowerCase();
+      if (roleLower.includes("test") || roleLower.includes("devops") || roleLower.includes("qa")) {
         target = this.getOrCreateSpecialist("devops", "DevOps & QA");
-      } else if (subagentRole.toLowerCase().includes("research")) {
+      } else if (roleLower.includes("research") || roleLower.includes("doc")) {
         target = this.getOrCreateSpecialist("researcher", "Research Analyst");
+      } else if (roleLower.includes("security") || roleLower.includes("audit")) {
+        target = this.getOrCreateSpecialist("security", "Security Auditor");
       } else {
         target = this.getOrCreateSpecialist("coder", subagentRole);
       }
@@ -656,8 +660,8 @@ class OfficeSimulator {
 
     if (toolName === "update_steps") {
       const planner = this.getOrCreateSpecialist("planner", "Lead Architect");
-      planner.speech = "Refining mission roadmap...";
-      planner.currentTask = "Roadmap Update";
+      planner.speech = summary || "Refining mission roadmap...";
+      planner.currentTask = summary || "Roadmap Update";
       planner.state = "working";
       planner.isPaused = false;
       planner.targetX = this.zones.glassBoard.x + 30;
@@ -665,37 +669,56 @@ class OfficeSimulator {
       if (args.steps) this.setMissionSteps(args.steps);
       target = planner;
     } else if (toolName === "update_focus") {
-      target.speech = `Focus: ${args.focus || ''}`;
-      target.currentTask = args.focus || "Executing Task";
+      target.speech = args.focus ? `Focus: ${args.focus}` : "Executing strategic focus";
+      target.currentTask = args.focus || "Executing Focus";
       target.state = "working";
       target.isPaused = false;
     } else if (toolName === "run_command") {
-      const cmd = (args.CommandLine || "").toLowerCase();
-      
-      // Git command detection -> Route to Git Remote Dispatch
-      if (cmd.includes("git") || cmd.includes("commit") || cmd.includes("push") || cmd.includes("release") || cmd.includes("remote")) {
+      const cmd = (args.CommandLine || "").trim();
+      const cmdLower = cmd.toLowerCase();
+
+      // STRICT git command check: must have "git" command boundary, NOT just "--exclude-dir=.git"
+      const isActualGit = /(?:^|\s|["'`/;|&])git(?:\.exe)?(?:\s+|$)/i.test(cmd);
+      const isTestCmd = /\b(test|pytest|unittest|playwright|jest|vitest)\b/i.test(cmdLower);
+      const isSearchCmd = /\b(grep|find|search|glob|ripgrep|rg)\b/i.test(cmdLower);
+
+      if (isActualGit) {
         const dispatcher = this.getOrCreateSpecialist("dispatcher", "Git Postmaster");
-        dispatcher.speech = "Packing & pushing commit to origin/main.";
-        dispatcher.currentTask = "Git Remote Push";
-        dispatcher.state = "shipping";
+        const isPush = /\bpush\b/i.test(cmdLower);
+        const isCommit = /\bcommit\b/i.test(cmdLower);
+        const isAdd = /\b(add|stage)\b/i.test(cmdLower);
+
+        dispatcher.speech = summary || (isPush ? "Pushing commit to remote origin/main" : (isCommit ? "Committing staged changes to git" : (isAdd ? "Staging modified files for commit" : "Inspecting git status & diff")));
+        dispatcher.currentTask = summary || (isPush ? "Git Remote Push" : (isCommit ? "Git Commit" : (isAdd ? "Git Stage Add" : "Git Status")));
+        dispatcher.state = isPush ? "shipping" : "working";
         dispatcher.isPaused = false;
         dispatcher.targetX = 980;
         dispatcher.targetY = 342;
-        this.uplinkPulse = 1.0;
+        if (isPush) this.uplinkPulse = 1.0;
         target = dispatcher;
-      } else if (cmd.includes("test") || cmd.includes("docker") || cmd.includes("playwright") || cmd.includes("pytest")) {
+      } else if (isTestCmd || cmdLower.includes("docker") || cmdLower.includes("container")) {
         const devops = this.getOrCreateSpecialist("devops", "DevOps & QA");
-        devops.speech = "Running container test suite...";
-        devops.currentTask = "Server QA";
+        devops.speech = summary || (isTestCmd ? "Running test suite verification..." : "Managing container services...");
+        devops.currentTask = summary || (isTestCmd ? "Test Suite QA" : "Container Ops");
         devops.state = "working";
         devops.isPaused = false;
         devops.targetX = 980;
         devops.targetY = 165;
         target = devops;
+      } else if (isSearchCmd) {
+        const researcher = this.getOrCreateSpecialist("researcher", "Research Analyst");
+        researcher.speech = summary || "Scanning codebase for references...";
+        researcher.currentTask = summary || "Codebase Search";
+        researcher.state = "working";
+        researcher.isPaused = false;
+        researcher.targetX = this.zones.library.x + 20;
+        researcher.targetY = this.zones.library.y + 35;
+        target = researcher;
       } else {
         const devops = this.getOrCreateSpecialist("devops", "DevOps & QA");
-        devops.speech = `Exec: ${(args.CommandLine || "").slice(0, 25)}...`;
-        devops.currentTask = "CLI Execution";
+        const cleanCmdSnippet = cmd.replace(/^wsl\s+.*?-e\s+bash\s+-c\s+["']?/, '').replace(/["']?$/, '').slice(0, 32);
+        devops.speech = summary || `Run: ${cleanCmdSnippet}`;
+        devops.currentTask = summary || `CLI: ${cleanCmdSnippet}`;
         devops.state = "working";
         devops.isPaused = false;
         devops.targetX = devops.homeX;
@@ -705,8 +728,9 @@ class OfficeSimulator {
     } else if (toolName === "write_file" || toolName === "edit_file") {
       const coder = this.getOrCreateSpecialist("coder", "Core Developer");
       const fname = args.Path ? args.Path.split(/[\\/]/).pop() : 'code';
-      coder.speech = `Editing ${fname}`;
-      coder.currentTask = `Modifying ${fname}`;
+      const actionWord = (toolName === "write_file") ? "Creating" : "Editing";
+      coder.speech = summary || `${actionWord} ${fname}`;
+      coder.currentTask = summary || `${actionWord} ${fname}`;
       coder.state = "working";
       coder.isPaused = false;
       coder.targetX = coder.homeX;
@@ -714,8 +738,9 @@ class OfficeSimulator {
       target = coder;
     } else if (toolName === "search_web" || toolName === "read_file" || toolName.includes("docs")) {
       const researcher = this.getOrCreateSpecialist("researcher", "Research Analyst");
-      researcher.speech = "Consulting API specifications...";
-      researcher.currentTask = "Docs Review";
+      const fname = args.Path ? args.Path.split(/[\\/]/).pop() : '';
+      researcher.speech = summary || (fname ? `Inspecting ${fname}` : "Consulting documentation & references");
+      researcher.currentTask = summary || (fname ? `Read ${fname}` : "Docs & Research");
       researcher.state = "working";
       researcher.isPaused = false;
       researcher.targetX = this.zones.library.x + 20;
@@ -734,6 +759,7 @@ class OfficeSimulator {
     }
 
     this.selectAgent(target.id);
+    this.updateCockpitUI();
     this.updateRosterUI();
   }
 
@@ -2636,10 +2662,10 @@ class OfficeSimulator {
             if (!ag.currentTask || ag.currentTask === "Executing Task") ag.currentTask = "Resting";
           } else if (atPostOffice) {
             ag.state = "shipping";
-            ag.speech = "Commit pushed to remote origin/main.";
+            if (!ag.speech) ag.speech = "Git Remote Push Complete";
           } else if (atServerLab) {
             ag.state = "working";
-            ag.speech = "Running container test suite...";
+            if (!ag.speech) ag.speech = "CI/CD Pipeline Active";
           } else if (Math.abs(ag.x - ag.homeX) < 8 && Math.abs(ag.y - ag.homeY) < 8) {
             ag.state = (ag.currentTask === "Resting" ? "coffee" : "working");
           } else {

@@ -884,10 +884,15 @@ function handleInitialState(data) {
     });
 
     if (data.recent_steps.length > 0 && officeSim) {
-      const lastStep = data.recent_steps[data.recent_steps.length - 1];
-      if (lastStep.tool_calls && lastStep.tool_calls.length > 0) {
-        const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
-        officeSim.handleToolAction(tc.name, tc.args || {});
+      const isRoadmapAllDone = cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done");
+      if (isRoadmapAllDone) {
+        officeSim.setAllIdle();
+      } else {
+        const lastStep = data.recent_steps[data.recent_steps.length - 1];
+        if (lastStep.tool_calls && lastStep.tool_calls.length > 0) {
+          const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
+          officeSim.handleToolAction(tc.name, tc.args || {});
+        }
       }
     }
   }
@@ -1074,8 +1079,9 @@ function handleStepEvent(step, isHydrate = false) {
         if (typeof p === 'string') p = p.replace(/^["']|["']$/g, '').trim();
         let target = args.Target || null;
         let replacement = args.Replacement || args.Content || null;
+        let summary = args.toolSummary || null;
         renderFileCard(p, toolName === "write_file" ? "Write File" : "Edit File", target, replacement);
-        officeSim.handleToolAction(toolName, { Path: p }, subagent);
+        officeSim.handleToolAction(toolName, { Path: p, toolSummary: summary }, subagent);
         return;
       }
 
@@ -1083,8 +1089,9 @@ function handleStepEvent(step, isHydrate = false) {
       if (toolName === "search_web" || toolName.includes("docs") || toolName === "read_file") {
         let q = args.query || args.Path || "";
         if (typeof q === 'string') q = q.replace(/^["']|["']$/g, '').trim();
+        let summary = args.toolSummary || null;
         renderResearchCard(toolName, q);
-        officeSim.handleToolAction(toolName, args, subagent);
+        officeSim.handleToolAction(toolName, { ...args, query: q, toolSummary: summary }, subagent);
         return;
       }
 
@@ -1124,14 +1131,45 @@ function getFeedContainer() {
   return feed;
 }
 
+function getCommandBadge(command) {
+  const cmd = (command || "").trim();
+  const cmdLower = cmd.toLowerCase();
+
+  // Test for real git invocation: must match word boundary "git" (e.g. git add, git commit, git push, git -C)
+  // NOT matching "--exclude-dir=.git" or flags/paths!
+  const isGitCmd = /(?:^|\s|["'`/;|&])git(?:\.exe)?(?:\s+|$)/i.test(cmd);
+
+  if (isGitCmd) {
+    if (/\bpush\b/i.test(cmdLower)) return { text: "GIT PUSH", class: "feed-badge badge-git" };
+    if (/\bcommit\b/i.test(cmdLower)) return { text: "GIT COMMIT", class: "feed-badge badge-git" };
+    if (/\b(add|stage)\b/i.test(cmdLower)) return { text: "GIT ADD", class: "feed-badge badge-git" };
+    if (/\b(status|diff|log|branch|checkout|switch|restore)\b/i.test(cmdLower)) return { text: "GIT STATUS", class: "feed-badge badge-git" };
+    return { text: "GIT", class: "feed-badge badge-git" };
+  }
+
+  // Test runners
+  if (/\b(pytest|unittest|test|jest|vitest|playwright)\b/i.test(cmdLower)) {
+    return { text: "TEST", class: "feed-badge badge-test" };
+  }
+
+  // Container / Docker
+  if (/\b(docker|docker-compose)\b/i.test(cmdLower)) {
+    return { text: "DOCKER", class: "feed-badge badge-ops" };
+  }
+
+  // Search / grep / find
+  if (/\b(grep|find|search|glob|ripgrep|rg)\b/i.test(cmdLower)) {
+    return { text: "SEARCH", class: "feed-badge badge-search" };
+  }
+
+  return { text: "CLI", class: "feed-badge" };
+}
+
 function renderCommandCard(command, summary) {
   const feed = getFeedContainer();
   if (!feed) return;
 
-  const cmdLower = command.toLowerCase();
-  const isGit = cmdLower.includes("git") || cmdLower.includes("commit") || cmdLower.includes("push") || cmdLower.includes("remote");
-  const badgeClass = isGit ? "feed-badge badge-git" : "feed-badge";
-  const badgeText = isGit ? (cmdLower.includes("push") ? "GIT PUSH" : "GIT COMMIT") : "CLI";
+  const badge = getCommandBadge(command);
 
   const card = document.createElement('div');
   card.className = "feed-card flex flex-col gap-2";
@@ -1139,7 +1177,7 @@ function renderCommandCard(command, summary) {
   card.innerHTML = `
     <div class="flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 truncate">
-        <span class="${badgeClass}">${badgeText}</span>
+        <span class="${badge.class}">${badge.text}</span>
         <span class="font-semibold text-xs truncate max-w-[220px]">${summary}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">

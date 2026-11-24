@@ -496,9 +496,11 @@ class OfficeRequestHandler(BaseHTTPRequestHandler):
             self.send_cors_and_security_headers()
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(content)))
-            # Cache service worker and manifest briefly, others longer
-            if ext in [".js", ".css", ".png", ".svg"]:
-                self.send_header("Cache-Control", "public, max-age=3600")
+            # Development and active studio visualizer: ensure live UI scripts always refresh
+            if ext in [".js", ".css", ".html"]:
+                self.send_header("Cache-Control", "no-cache, must-revalidate")
+            elif ext in [".png", ".svg", ".ico"]:
+                self.send_header("Cache-Control", "public, max-age=600")
             else:
                 self.send_header("Cache-Control", "no-cache")
             self.end_headers()
