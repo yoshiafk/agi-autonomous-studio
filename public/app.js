@@ -12,7 +12,8 @@ let autoFollowEnabled = true;
 let totalStepsCount = 0;
 let lastKnownActive = null;
 let cachedMissionSteps = [];
-const META_CONVERSATION_ID = "7f270c91-8b98-45aa-9bfd-311aa2a47b72";
+const appUrlParams = new URLSearchParams(window.location.search);
+const excludeConvId = appUrlParams.get('exclude_conv_id') || "";
 let activeSessionsCache = [];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -210,7 +211,7 @@ async function loadProjects() {
 
 async function checkActiveProject(force = false) {
   try {
-    const url = `/api/projects/active?exclude_conv_id=${META_CONVERSATION_ID}`;
+    const url = excludeConvId ? `/api/projects/active?exclude_conv_id=${encodeURIComponent(excludeConvId)}` : '/api/projects/active';
     const res = await fetch(url);
     const active = await res.json();
 
@@ -309,7 +310,8 @@ function updateActiveHeader(projectName, sessionTitle, isActive) {
 
 async function checkActiveSessions() {
   try {
-    const res = await fetch(`/api/sessions/active?exclude_conv_id=${META_CONVERSATION_ID}`);
+    const url = excludeConvId ? `/api/sessions/active?exclude_conv_id=${encodeURIComponent(excludeConvId)}` : '/api/sessions/active';
+    const res = await fetch(url);
     const sessions = await res.json();
     renderActiveSessionsBar(sessions);
 
