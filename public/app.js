@@ -52,10 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 2000);
 
-  // Inactivity watchdog: if agents were busy but no actions arrive for 30s (and no steps in progress), transition to idle rest
+  // Inactivity watchdog: if agents were busy but no actions arrive for 45s (and no unfinished steps in roadmap), transition to idle rest
   setInterval(() => {
-    const hasActiveSteps = cachedMissionSteps && Array.isArray(cachedMissionSteps) && cachedMissionSteps.some(s => s.status === "in_progress");
-    if (isConversationBusy && !hasActiveSteps && (Date.now() - lastAgentActionTime > 30000)) {
+    const hasUnfinishedSteps = cachedMissionSteps && Array.isArray(cachedMissionSteps) && cachedMissionSteps.length > 0 && cachedMissionSteps.some(s => s.status !== "done");
+    if (isConversationBusy && !hasUnfinishedSteps && (Date.now() - lastAgentActionTime > 45000)) {
       isConversationBusy = false;
       onConversationIdle();
     }
@@ -638,7 +638,10 @@ async function checkActiveProject(force = false) {
 
     updateActiveHeader(projectName, active.title, isActive);
 
-    if (lastKnownActive === true && !isActive) {
+    const hasUnfinishedRoadmap = cachedMissionSteps && Array.isArray(cachedMissionSteps) && cachedMissionSteps.length > 0 && cachedMissionSteps.some(s => s.status !== "done");
+    const recentlyActive = (Date.now() - lastAgentActionTime < 45000);
+
+    if (lastKnownActive === true && !isActive && !hasUnfinishedRoadmap && !recentlyActive) {
       onConversationIdle();
     }
     lastKnownActive = isActive;
@@ -908,15 +911,21 @@ function handleInitialState(data) {
     });
 
     if (data.recent_steps.length > 0 && officeSim) {
-      const isRoadmapAllDone = cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done");
+      const isRoadmapAllDone = cachedMissionSteps && cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done");
       const lastStep = data.recent_steps[data.recent_steps.length - 1];
-      const lastStepIsComplete = lastStep && lastStep.type === "PLANNER_RESPONSE" && lastStep.content && (!lastStep.tool_calls || lastStep.tool_calls.length === 0);
 
-      if (isRoadmapAllDone || lastStepIsComplete) {
+      if (isRoadmapAllDone) {
         onConversationIdle();
       } else if (lastStep && lastStep.tool_calls && lastStep.tool_calls.length > 0) {
         const tc = lastStep.tool_calls[lastStep.tool_calls.length - 1];
         officeSim.handleToolAction(tc.name, tc.args || {});
+      } else {
+        const hasInProgress = cachedMissionSteps && cachedMissionSteps.some(s => s.status === "in_progress");
+        const activeBadge = document.getElementById('active-project-badge');
+        if (activeBadge) {
+          activeBadge.className = hasInProgress ? "status-pill status-working" : "status-pill status-standby";
+          activeBadge.textContent = hasInProgress ? "WORKING" : "STANDBY";
+        }
       }
     }
   }
@@ -1061,11 +1070,15 @@ function handleStepEvent(step, isHydrate = false) {
     lastAgentActionTime = Date.now();
     isConversationBusy = true;
 
-    // Reactivate studio status badge if it was idling
+    // Reactivate studio status badge and focus banner if it was idling
     const activeBadge = document.getElementById('active-project-badge');
-    if (activeBadge && activeBadge.textContent.includes("IDLE")) {
+    if (activeBadge) {
       activeBadge.className = "status-pill status-working";
       activeBadge.textContent = "WORKING";
+    }
+    const focusBanner = document.getElementById('focus-banner-text');
+    if (focusBanner && focusBanner.textContent.includes("Idle & Ready")) {
+      focusBanner.textContent = "Executing Autonomous Project Workflow";
     }
 
     step.tool_calls.forEach(tc => {
@@ -1175,10 +1188,17 @@ function handleStepEvent(step, isHydrate = false) {
     const hasToolCalls = step.tool_calls && Array.isArray(step.tool_calls) && step.tool_calls.length > 0;
     if (step.content && !hasToolCalls) {
       isConversationBusy = false;
-      onConversationIdle();
-      const nameEl = document.getElementById('active-project-name');
-      const curName = nameEl ? nameEl.textContent : currentProjectId;
-      updateActiveHeader(curName, null, false);
+      const isRoadmapAllDone = cachedMissionSteps && cachedMissionSteps.length > 0 && cachedMissionSteps.every(s => s.status === "done");
+      if (isRoadmapAllDone) {
+        onConversationIdle();
+      } else {
+        const hasInProgress = cachedMissionSteps && cachedMissionSteps.some(s => s.status === "in_progress");
+        const activeBadge = document.getElementById('active-project-badge');
+        if (activeBadge) {
+          activeBadge.className = hasInProgress ? "status-pill status-working" : "status-pill status-standby";
+          activeBadge.textContent = hasInProgress ? "WORKING" : "STANDBY";
+        }
+      }
       return;
     }
   }

@@ -401,8 +401,8 @@ class OfficeSimulator {
       ag.isDrifting = false;
       ag.isRestingGoal = false;
       if (isActive) {
-        ag.state = (ag.id === 0) ? "working" : "resting";
-        ag.currentTask = (ag.id === 0) ? "Session Coordinator" : "Station Idle";
+        ag.state = "working";
+        ag.currentTask = (ag.id === 0) ? "Session Coordinator" : "Standby";
         ag.speech = (ag.id === 0) ? "Monitoring workspace..." : "";
       } else {
         ag.state = "resting";
@@ -416,7 +416,12 @@ class OfficeSimulator {
 
   isIdleTask(task) {
     if (!task) return false;
-    const idleKeywords = ["Resting", "Bookshelf", "Skyline", "Sofa", "Espresso", "Armchair", "Coffee", "Standby", "Lounge", "Breakout", "Review", "Milestones Complete", "Archive"];
+    const idleKeywords = [
+      "Resting", "Browsing Bookshelf", "Skyline View", "Resting on Sofa", "Lounge Sofa",
+      "Brewing Espresso", "Reading in Armchair", "Coffee Standby", "Lounge Standby",
+      "Breakout Lounge", "Milestones Complete", "Milestones completed", "Milestone Review",
+      "Station Idle"
+    ];
     return idleKeywords.some(k => task.includes(k));
   }
 
@@ -495,13 +500,29 @@ class OfficeSimulator {
   }
 
   getStationLabel(ag) {
+    const isAtDesk = ag.deskIndex !== null && ag.deskIndex !== undefined && ag.deskIndex >= 0 && ag.deskIndex < this.zones.desks.length &&
+      (Math.hypot(ag.x - this.zones.desks[ag.deskIndex].x, ag.y - (this.zones.desks[ag.deskIndex].y - 14)) < 25 ||
+       Math.hypot(ag.targetX - this.zones.desks[ag.deskIndex].x, ag.targetY - (this.zones.desks[ag.deskIndex].y - 14)) < 25);
+
+    if (isAtDesk && !this.isIdleTask(ag.currentTask)) {
+      const labels = [
+        "Desk 1 (Eng Pod Alpha)",
+        "Desk 2 (Eng Pod Alpha)",
+        "Desk 3 (Intel Pod Beta)",
+        "Desk 4 (Intel Pod Beta)",
+        "Desk 5 (Architecture Bench)",
+        "Desk 6 (QA Device Bench)"
+      ];
+      return labels[ag.deskIndex] || `Desk ${ag.deskIndex + 1}`;
+    }
+
     if (ag.currentTask && ag.currentTask.includes("Bookshelf")) {
       return "Knowledge Archive";
     }
     if (ag.currentTask && ag.currentTask.includes("Skyline")) {
       return "Skyline Horizon";
     }
-    if (ag.state === "coffee" || ag.isRestingGoal || this.isIdleTask(ag.currentTask) || (Math.hypot(ag.x - 160, ag.y - 360) < 140)) {
+    if ((ag.state === "coffee" || ag.isRestingGoal || this.isIdleTask(ag.currentTask)) && (Math.hypot(ag.x - 160, ag.y - 360) < 140 || Math.hypot(ag.targetX - 160, ag.targetY - 360) < 140)) {
       return "Breakout Lounge & Cafe";
     }
     if (ag.key === "dispatcher" || Math.hypot(ag.x - 960, ag.y - 350) < 85) {
@@ -703,12 +724,10 @@ class OfficeSimulator {
 
       const stationLabel = this.getStationLabel(ag);
 
+      const hasActiveTask = ag.currentTask && !this.isIdleTask(ag.currentTask) && ag.currentTask !== "Ready" && ag.currentTask !== "Standby";
+
       let statusClass = "working";
       let statusLabel = "WORKING";
-
-      const isResting = ag.state === "coffee" || ag.isRestingGoal ||
-        this.isIdleTask(ag.currentTask) ||
-        (ag.speech && (ag.speech.toLowerCase().includes("resting") || ag.speech.toLowerCase().includes("breakout") || ag.speech.toLowerCase().includes("horizon") || ag.speech.toLowerCase().includes("espresso") || ag.speech.toLowerCase().includes("milestones completed") || ag.speech.toLowerCase().includes("armchair") || ag.speech.toLowerCase().includes("bookshelf") || ag.speech.toLowerCase().includes("skyline") || ag.speech.toLowerCase().includes("sofa")));
 
       if (ag.state === "error") {
         statusClass = "error";
@@ -716,15 +735,15 @@ class OfficeSimulator {
       } else if (ag.isPaused) {
         statusClass = "paused";
         statusLabel = "PAUSED";
-      } else if (isResting) {
+      } else if (hasActiveTask || ag.state === "working" || ag.state === "shipping" || ag.state === "walking") {
+        statusClass = "working";
+        statusLabel = (ag.state === "shipping") ? "SHIPPING" : "WORKING";
+      } else if (ag.state === "coffee" || ag.isRestingGoal || this.isIdleTask(ag.currentTask)) {
         statusClass = "resting";
         statusLabel = "RESTING";
-      } else if (ag.currentTask === "Ready" && ag.state !== "working" && ag.state !== "shipping") {
+      } else {
         statusClass = "standby";
         statusLabel = "STANDBY";
-      } else {
-        statusClass = "working";
-        statusLabel = "WORKING";
       }
 
       // Metadata calculations
@@ -932,9 +951,13 @@ class OfficeSimulator {
       this.isStudioIdle = false;
       this.agents.forEach(a => {
         a.isRestingGoal = false;
-        if (a.state === "coffee" && a !== target) {
+        if (a !== target) {
+          a.targetX = a.homeX;
+          a.targetY = a.homeY;
+          a.state = "working";
+          a.isPaused = false;
           a.speech = "";
-          a.currentTask = "Standby";
+          a.currentTask = (a.id === 0) ? "Session Coordinator" : "Standby at Workstation";
         }
       });
     }
@@ -3035,7 +3058,7 @@ class OfficeSimulator {
           const atPostOffice = Math.hypot(ag.x - 960, ag.y - 350) < 70;
           const atServerLab = Math.hypot(ag.x - 960, ag.y - 180) < 70;
 
-          if (ag.isRestingGoal || this.isIdleTask(ag.currentTask) || atLounge) {
+          if ((this.isStudioIdle || ag.isRestingGoal || this.isIdleTask(ag.currentTask)) && atLounge) {
             ag.state = "coffee";
             if (!ag.currentTask || ag.currentTask === "Executing Task") ag.currentTask = "Resting";
           } else if (atPostOffice) {
@@ -3045,9 +3068,9 @@ class OfficeSimulator {
             ag.state = "working";
             if (!ag.speech) ag.speech = "CI/CD Pipeline Active";
           } else if (Math.abs(ag.x - ag.homeX) < 8 && Math.abs(ag.y - ag.homeY) < 8) {
-            ag.state = (ag.isRestingGoal || this.isIdleTask(ag.currentTask) ? "coffee" : "working");
+            ag.state = (this.isStudioIdle || ag.isRestingGoal || this.isIdleTask(ag.currentTask)) ? "coffee" : "working";
           } else {
-            ag.state = (ag.isRestingGoal || this.isIdleTask(ag.currentTask) ? "coffee" : "working");
+            ag.state = (this.isStudioIdle || ag.isRestingGoal || this.isIdleTask(ag.currentTask)) ? "coffee" : "working";
           }
           this.updateRosterUI();
         }
