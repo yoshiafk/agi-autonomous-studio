@@ -136,13 +136,16 @@ def redact_sensitive_data(text: str) -> str:
 def get_security_headers() -> dict:
     """
     Returns standard defense-in-depth security headers.
+    Allows necessary CDNs for styling (gstatic, tailwind, google fonts).
     """
     return {
         "Content-Security-Policy": (
             "default-src 'self' 'unsafe-inline' data:; "
-            "connect-src 'self' ws: http:; "
-            "img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline';"
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' data: https://fonts.gstatic.com; "
+            "connect-src 'self' ws: http: https:; "
+            "img-src 'self' data: blob:;"
         ),
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "SAMEORIGIN",

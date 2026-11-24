@@ -84,6 +84,10 @@ class TestSecurityShield(unittest.TestCase):
     def test_get_security_headers(self):
         headers = get_security_headers()
         self.assertIn("Content-Security-Policy", headers)
+        csp = headers["Content-Security-Policy"]
+        self.assertIn("https://www.gstatic.com", csp)
+        self.assertIn("https://fonts.googleapis.com", csp)
+        self.assertIn("https://fonts.gstatic.com", csp)
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
         self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
 

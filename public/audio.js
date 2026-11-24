@@ -6,23 +6,48 @@ class ChiptuneAudio {
     this.ctx = null;
     this.enabled = localStorage.getItem('studio_audio_enabled') === 'true';
     this.lastSoundTime = {};
+    this.hasUserInteracted = false;
+
+    // Listen for the first user interaction to safely unlock AudioContext
+    const unlockAudio = () => {
+      this.hasUserInteracted = true;
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+
+    window.addEventListener('click', unlockAudio, { once: true, passive: true });
+    window.addEventListener('keydown', unlockAudio, { once: true, passive: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
   }
 
   init() {
+    // Strictly require user gesture before instantiating or resuming AudioContext
+    if (!this.hasUserInteracted) return false;
+
     if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioCtx();
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+      } catch (err) {
+        return false;
+      }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
+    return !!(this.ctx && this.ctx.state === 'running');
   }
 
   toggle() {
-    this.init();
+    this.hasUserInteracted = true;
     this.enabled = !this.enabled;
     localStorage.setItem('studio_audio_enabled', this.enabled ? 'true' : 'false');
     if (this.enabled) {
+      this.init();
       this.playChime();
     }
     return this.enabled;
@@ -30,12 +55,11 @@ class ChiptuneAudio {
 
   // 8-bit mechanical typing blip (rate-limited)
   playKeyClick() {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.hasUserInteracted) return;
     const now = Date.now();
     if (this.lastSoundTime.key && now - this.lastSoundTime.key < 95) return;
     this.lastSoundTime.key = now;
-    this.init();
-    if (!this.ctx) return;
+    if (!this.init()) return;
 
     try {
       const osc = this.ctx.createOscillator();
@@ -58,9 +82,8 @@ class ChiptuneAudio {
 
   // 8-bit victory / milestone arpeggio (C5 -> E5 -> G5 -> C6)
   playChime() {
-    if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    if (!this.enabled || !this.hasUserInteracted) return;
+    if (!this.init()) return;
 
     try {
       const notes = [523.25, 659.25, 783.99, 1046.50];
@@ -86,12 +109,11 @@ class ChiptuneAudio {
 
   // 8-bit satellite radar ping for git push (B5 -> E6)
   playSatellitePing() {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.hasUserInteracted) return;
     const now = Date.now();
     if (this.lastSoundTime.ping && now - this.lastSoundTime.ping < 800) return;
     this.lastSoundTime.ping = now;
-    this.init();
-    if (!this.ctx) return;
+    if (!this.init()) return;
 
     try {
       const osc = this.ctx.createOscillator();
@@ -113,12 +135,11 @@ class ChiptuneAudio {
 
   // 8-bit filtered noise steam burst for espresso lounge
   playCoffeeSteam() {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.hasUserInteracted) return;
     const now = Date.now();
     if (this.lastSoundTime.steam && now - this.lastSoundTime.steam < 1400) return;
     this.lastSoundTime.steam = now;
-    this.init();
-    if (!this.ctx) return;
+    if (!this.init()) return;
 
     try {
       const bufferSize = Math.floor(this.ctx.sampleRate * 0.18);
@@ -150,9 +171,8 @@ class ChiptuneAudio {
 
   // 8-bit drift alert / warning boop
   playAlert() {
-    if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    if (!this.enabled || !this.hasUserInteracted) return;
+    if (!this.init()) return;
 
     try {
       const osc = this.ctx.createOscillator();
